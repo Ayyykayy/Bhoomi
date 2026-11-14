@@ -1,0 +1,331 @@
+.pixel-game-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: var(--bg-main);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  font-family: var(--font-primary);
+  color: var(--text-primary);
+}
+
+.pixel-header {
+  height: 76px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 36px;
+  position: sticky;
+  top: 0;
+  z-index: 2000;
+  box-shadow: var(--shadow);
+}
+
+.pixel-title-group {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.pixel-back-btn {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pixel-back-btn:hover {
+  background: var(--primary-blue);
+  color: white;
+  border-color: var(--primary-blue);
+}
+
+.pixel-title-group h1 {
+  font-size: 26px !important;
+  font-weight: 700 !important;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.pixel-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.status-pill {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-color);
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.status-pill strong {
+  color: var(--text-primary);
+}
+
+.advance-day-btn {
+  background: var(--vegetation);
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: var(--shadow);
+  transition: opacity 0.2s;
+}
+
+.advance-day-btn:hover {
+  opacity: 0.9;
+}
+
+.pixel-game-layout {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 24px;
+  padding: 24px 36px;
+  max-width: 1500px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 1100px) {
+  .pixel-game-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pixel-controls-panel {
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.pixel-controls-panel h3 {
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  margin: 0;
+}
+
+.panel-sub {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: -12px 0 0 0;
+}
+
+.tool-btn-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.tool-btn {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.tool-btn:hover {
+  border-color: var(--primary-blue);
+}
+
+.tool-btn.active {
+  background: var(--primary-blue);
+  color: white;
+  border-color: var(--primary-blue);
+}
+
+.weather-control-box {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.weather-control-box h4 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.ctrl-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.ctrl-row input {
+  accent-color: var(--primary-blue);
+  cursor: pointer;
+}
+
+.methodology-note {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  background: var(--surface-elevated);
+  padding: 12px;
+  border-radius: 8px;
+  border-left: 3px solid var(--primary-blue);
+}
+
+.pixel-canvas-workspace {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.canvas-card {
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: var(--shadow);
+  position: relative;
+  overflow: hidden;
+}
+
+.pixel-satellite-inset {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  width: 200px;
+  height: 140px;
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+}
+
+.inset-bar {
+  background: var(--surface-elevated);
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.inset-map {
+  flex: 1;
+}
+
+.harvest-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.harvest-modal {
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 36px;
+  width: 420px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-shadow: var(--shadow);
+}
+
+.harvest-modal h3 {
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--vegetation);
+}
+
+.harvest-score-box {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-color);
+  padding: 16px;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 15px;
+  color: var(--text-secondary);
+}
+
+.harvest-score-box strong {
+  font-size: 26px;
+  color: var(--text-primary);
+}
+
+.restart-game-btn {
+  background: var(--primary-blue);
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: var(--shadow);
+  transition: opacity 0.2s;
+}
+
+.restart-game-btn:hover {
+  opacity: 0.9;
+}

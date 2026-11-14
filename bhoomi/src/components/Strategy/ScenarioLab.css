@@ -1,0 +1,364 @@
+.scenario-lab-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: var(--bg-main);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: var(--font-primary);
+  color: var(--text-primary);
+}
+
+/* Standardized Header (72px desktop / 64px mobile) */
+.lab-header {
+  height: 72px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 36px;
+  z-index: 2000;
+  box-shadow: var(--shadow);
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .lab-header {
+    height: 64px;
+    padding: 0 20px;
+  }
+}
+
+.lab-title-group {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.lab-back-btn {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.lab-back-btn:hover {
+  background: var(--primary-blue);
+  color: white;
+  border-color: var(--primary-blue);
+}
+
+.lab-title-group h1 {
+  font-size: 24px !important;
+  font-weight: 700 !important;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.demo-badge {
+  background: var(--surface-elevated);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.lab-region-pill {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-color);
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Map-First Workspace */
+.lab-workspace {
+  flex: 1;
+  position: relative;
+  display: flex;
+  overflow: hidden;
+}
+
+.lab-map-container {
+  flex: 1;
+  height: 100%;
+  position: relative;
+}
+
+.map-layer-toolbar {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 500;
+  display: flex;
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 3px;
+  box-shadow: var(--shadow);
+}
+
+.layer-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.layer-btn.active {
+  background: var(--primary-blue);
+  color: white;
+  font-weight: 600;
+}
+
+.map-attribution-hud {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  z-index: 500;
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  box-shadow: var(--shadow);
+}
+
+/* Floating Environmental & Strategy Controls (Right Panel) */
+.lab-floating-controls-panel {
+  width: 380px;
+  height: 100%;
+  background: var(--surface);
+  border-left: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  overflow-y: auto;
+  box-shadow: var(--shadow);
+  z-index: 600;
+}
+
+@media (max-width: 900px) {
+  .lab-floating-controls-panel {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 340px;
+  }
+}
+
+.control-card {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.control-card h3 {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+}
+
+.ctrl-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ctrl-label-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.ctrl-label-row strong {
+  color: var(--text-primary);
+}
+
+.lab-range {
+  width: 100%;
+  accent-color: var(--primary-blue);
+  cursor: pointer;
+}
+
+.ctrl-select-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.lab-select {
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: var(--font-primary);
+  outline: none;
+  cursor: pointer;
+}
+
+.ctrl-toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.lab-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.lab-checkbox input {
+  accent-color: var(--primary-blue);
+  cursor: pointer;
+}
+
+.lab-reset-btn {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: var(--shadow);
+  transition: all 0.2s;
+  margin-top: auto;
+}
+
+.lab-reset-btn:hover {
+  background: var(--primary-blue);
+  color: white;
+  border-color: var(--primary-blue);
+}
+
+/* Bottom Comparison Drawer */
+.lab-comparison-drawer {
+  background: var(--surface);
+  border-top: 1px solid var(--border-color);
+  padding: 16px 36px;
+  z-index: 700;
+  box-shadow: var(--shadow);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.drawer-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.drawer-title-row h3 {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.drawer-subtitle {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.drawer-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 900px) {
+  .drawer-metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.metric-box {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.m-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.m-val-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.base-val {
+  color: var(--text-secondary);
+  text-decoration: line-through;
+  font-size: 13px;
+}
+
+.arrow {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
