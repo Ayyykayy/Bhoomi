@@ -2,6 +2,18 @@
 
 Explore agricultural conditions with NASA data, draw a field boundary, compare farming scenarios, and save experiments and action plans.
 
+**Workflow:** Globe → Regional Research → Scenario Lab → Experiment Results → Farm Action Plan.
+
+BHOOMI connects environmental observations to an interactive planning workspace. Farming outcome calculations are currently illustrative, not validated agricultural predictions.
+
+## Documentation
+
+- [Architecture and technology](docs/ARCHITECTURE.md)
+- [Backend API](docs/API.md)
+- [Deployment checklist](docs/DEPLOYMENT.md)
+- [Troubleshooting](docs/TROUBLESHOOTING.md)
+- [Backend integration notes](bhoomi/backend/BACKEND_INTEGRATION.md)
+
 ## Project layout
 
 - `bhoomi/`: React + Vite frontend.
@@ -33,6 +45,21 @@ npm run dev
 
 Open the local URL printed by Vite. Backend CORS defaults allow frontend ports 5173 and 5174. Keep keys and local environment files out of Git.
 
+## Configuration
+
+| Setting | Where | Purpose |
+|---|---|---|
+| `VITE_BACKEND_URL` | Frontend `.env.local` or hosting build settings | Backend address; use HTTPS in production |
+| `VITE_MAPTILER_KEY` | Frontend `.env.local` or hosting build settings | MapTiler browser key; restrict permitted origins in your account |
+| `ALLOWED_ORIGINS` | Backend environment | Comma-separated frontend origins, with no trailing slash |
+| `DEBUG` | Backend environment | Set `False` in production |
+
+`VITE_` settings are included in the browser bundle. Never place a private server credential in them. The connected POWER, ORNL and GIBS integrations do not require the user's Earthdata password.
+
+## Technology
+
+React, Vite, JavaScript, CSS, Lucide, MapLibre GL, MapTiler, Leaflet, Recharts, Python, FastAPI, Requests and Cachetools. GitHub stores source; browser local storage stores experiments.
+
 ## Connected data
 
 - NASA POWER: daily temperature, rainfall, humidity and modeled relative soil wetness.
@@ -61,3 +88,12 @@ cd backend
 ```
 
 Final publication checks: frontend production build and 15 backend integration tests passed. Vite reports a bundle-size advisory.
+
+## Data acknowledgements
+
+- [NASA POWER](https://power.larc.nasa.gov/)
+- [ORNL DAAC MODIS subsetting service](https://modis.ornl.gov/data/modis_webservice.html)
+- [NASA GIBS](https://www.earthdata.nasa.gov/engage/open-data-services-and-software/earthdata-developer-portal/gibs-api)
+- [OpenStreetMap](https://www.openstreetmap.org/copyright), Nominatim, MapTiler and Esri World Imagery.
+
+External services retain their own attribution and usage requirements. A deployment needs internet access to those services.
