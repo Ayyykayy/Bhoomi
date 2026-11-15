@@ -871,3 +871,4 @@
  .scenario-lab-overlay .drawer-metrics-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
  .scenario-lab-overlay .header-actions-right { flex-wrap: wrap; }
 }
+.scenario-lab-overlay .header-actions-right { flex-wrap: wrap; justify-content: flex-end; }

@@ -6,6 +6,7 @@ import { ArrowLeft, Sliders, CloudRain, RefreshCw, Layers, Search, MapPin, Squar
 import { calculateSimulation } from '../../services/simulationService';
 import { searchLocations, fetchBackendResearch } from '../../services/api';
 import './ScenarioLab.css';
+import { createNewExperiment, saveSingleExperiment } from '../../services/experimentStorage';
 
 // Helper component to smoothly fly the Leaflet map to new coordinates or bounding box
 function MapController({ center, zoom, bounds }) {
@@ -65,7 +66,7 @@ function DrawingManager({ activeTool, onPolygonComplete, onRectangleComplete, on
   return null;
 }
 
-export default function ScenarioLab({ region, onBack }) {
+export default function ScenarioLab({ region, onBack, onSaved, onNavigateToSaved, onNavigateToSources }) {
   // Safety check for missing region before mounting stateful hooks
   if (!region || typeof region.lat !== 'number' || typeof region.lng !== 'number') {
     return (
@@ -152,6 +153,28 @@ export default function ScenarioLab({ region, onBack }) {
   } catch (err) {
     simulationError = err.message || 'Simulation calculation failed';
   }
+
+  const [saveError, setSaveError] = useState(null);
+  const handleSaveAndView = () => {
+    try {
+      if (!simResult || simulationError) throw new Error('Resolve the scenario inputs before saving.');
+      const experiment = createNewExperiment(region, environment, strategies, budget,
+        selectedAreaGeoJson ? { ...selectedAreaGeoJson, hectares: selectedAreaHectares } : null);
+      experiment.status = 'awaiting_backend';
+      experiment.outputs = { ...simResult, illustrative: true };
+      experiment.baseline = simResult.baseline;
+      experiment.modified = simResult.modified;
+      experiment.metrics = { ...simResult.metrics, assumptions: simResult.assumptions };
+      experiment.metadata.assumptions = simResult.assumptions;
+      experiment.metadata.provenance = 'Example calculation; tested backend predictions are not connected yet.';
+      experiment.observations = { soilMoisture: null, ndvi: null, rainfall: null, temperature: null,
+        date: null, source: 'No confirmed measurements saved. Values are experiment settings.', availability: 'unavailable' };
+      setSaveError(null);
+      onSaved(saveSingleExperiment(experiment));
+    } catch (error) {
+      setSaveError(error.message || 'Unable to save this experiment on this browser.');
+    }
+  };
 
   // Handle Global Location Search with Debouncing & Keyboard Navigation
   useEffect(() => {
@@ -342,11 +365,14 @@ export default function ScenarioLab({ region, onBack }) {
             <ArrowLeft size={18} /> Return to Research
           </button>
           <h1>
-            BHOOMI Scenario Lab <span className="demo-badge">Scenario preview</span>
+            BHOOMI Scenario Lab <span className="demo-badge">Example results</span>
           </h1>
         </div>
 
         <div className="header-actions-right">
+          <button className="lab-example-btn" onClick={onNavigateToSources}>Data Sources</button>
+          <button className="lab-example-btn" onClick={onNavigateToSaved}>Saved Experiments</button>
+          <button className="lab-example-btn" onClick={handleSaveAndView} style={{ background: 'var(--primary-blue)', color: '#fff' }}>Save &amp; View Results</button>
           <button className="lab-example-btn" onClick={handleLoadExample}>
             Load Example Scenario
           </button>
@@ -356,6 +382,7 @@ export default function ScenarioLab({ region, onBack }) {
         </div>
       </header>
 
+      {saveError && <div role="alert" style={{ padding: '12px 24px', color: 'var(--danger)' }}>{saveError}</div>}
       {simulationError ? (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px', textAlign: 'center' }}>
           <AlertCircle size={48} style={{ color: '#E5484D', marginBottom: '16px' }} />
@@ -365,7 +392,7 @@ export default function ScenarioLab({ region, onBack }) {
         </div>
       ) : (
         <>
-          <div role="note" className="lab-data-notice"><strong>Experiment mode</strong><span>Adjust assumptions and compare scenarios. Calculated outcomes are illustrative; validated model results will be available when the backend is connected.</span></div>{/* Map-First Workspace */}
+          <div role="note" className="lab-data-notice"><strong>Experiment mode</strong><span>Change the settings and compare example results. Tested predictions will be available once the backend is connected.</span></div>{/* Map-First Workspace */}
           <div className="lab-workspace">
             {/* Large Satellite Map Centerpiece (70-75% width) */}
             <div className="lab-map-container" style={{ width: isSidebarOpen ? 'calc(100% - 410px)' : '100%', transition: 'width 0.3s ease' }}>
@@ -485,7 +512,7 @@ export default function ScenarioLab({ region, onBack }) {
                   <Popup>
                     <div style={{ fontFamily: 'Roboto, sans-serif', fontSize: '15px', color: 'var(--text-primary)' }}>
                       <strong>{selectedLocationName}</strong><br />
-                      Simulated Scenario Soil Moisture: <strong>{simResult ? simResult.modified.soilMoisture : 'N/A'}%</strong><br />
+                      Simulated Soil Moisture in Experiment: <strong>{simResult ? simResult.modified.soilMoisture : 'N/A'}%</strong><br />
                       Coordinates: {mapCenter[0].toFixed(2)}°N, {mapCenter[1].toFixed(2)}°E
                     </div>
                   </Popup>
@@ -504,7 +531,7 @@ export default function ScenarioLab({ region, onBack }) {
               <div className="floating-research-glass-card">
                 <div className="frc-header">
                   <span className="frc-title">{selectedLocationName.split(',')[0]}</span>
-                  <span className="frc-badge">Scenario inputs</span>
+                  <span className="frc-badge">Experiment settings</span>
                 </div>
                 <div className="frc-grid">
                   <div className="frc-item">
@@ -534,8 +561,8 @@ export default function ScenarioLab({ region, onBack }) {
                       </button>
                     ) : (
                       <div className="frc-analysis-res">
-                        <span>Analyzed Soil Moisture: <strong>{analysisResult.indicators.soilMoisture}</strong></span>
-                        <span>NDVI Vigor: <strong>{analysisResult.indicators.ndvi}</strong></span>
+                        <span>Soil Moisture Result: <strong>{analysisResult.indicators.soilMoisture}</strong></span>
+                        <span>Plant Health (NDVI): <strong>{analysisResult.indicators.ndvi}</strong></span>
                         <span className="frc-source">{analysisResult.dataSource}</span>
                       </div>
                     )}
@@ -562,14 +589,14 @@ export default function ScenarioLab({ region, onBack }) {
               {isSidebarOpen ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
             </button>
 
-            {/* Collapsible Right Sidebar (Environmental Controls & Farming Interventions) */}
+            {/* Collapsible Right Sidebar (Environmental Controls & Farming Choices) */}
             <div className={`lab-floating-controls-panel ${isSidebarOpen ? 'open' : 'closed'}`}>
               <div className="control-card">
                 <h3><CloudRain size={18} /> Weather and Climate</h3>
 
                 <div className="ctrl-group">
                   <div className="ctrl-label-row">
-                    <span>Rainfall Anomaly</span>
+                    <span>Rainfall Used in Experiment</span>
                     <strong>{environment.rainfall} mm</strong>
                   </div>
                   <input
@@ -584,7 +611,7 @@ export default function ScenarioLab({ region, onBack }) {
 
                 <div className="ctrl-group">
                   <div className="ctrl-label-row">
-                    <span>Drought Severity Index</span>
+                    <span>Drought Level</span>
                     <strong>Level {environment.droughtSeverity} / 10</strong>
                   </div>
                   <input
@@ -614,7 +641,7 @@ export default function ScenarioLab({ region, onBack }) {
 
                 <div className="ctrl-group">
                   <div className="ctrl-label-row">
-                    <span>Baseline Soil Moisture</span>
+                    <span>Starting Soil Moisture</span>
                     <strong>{environment.soilMoisture} %</strong>
                   </div>
                   <input
@@ -634,10 +661,10 @@ export default function ScenarioLab({ region, onBack }) {
               </div>
 
               <div className="control-card">
-                <h3><Sliders size={18} /> Farming Interventions</h3>
+                <h3><Sliders size={18} /> Farming Choices</h3>
 
                 <div className="ctrl-select-row">
-                  <label>Crop Cultivar</label>
+                  <label>Crop Variety</label>
                   <select
                     value={strategies.cropType}
                     onChange={(e) => setStrategies({ ...strategies, cropType: e.target.value })}
@@ -684,7 +711,7 @@ export default function ScenarioLab({ region, onBack }) {
                       checked={strategies.droughtSeeds}
                       onChange={(e) => setStrategies({ ...strategies, droughtSeeds: e.target.checked })}
                     />
-                    <span>Drought-Resilient Cultivars</span>
+                    <span>Drought-Tolerant Varieties</span>
                   </label>
                   <label className="lab-checkbox">
                     <input
@@ -692,13 +719,13 @@ export default function ScenarioLab({ region, onBack }) {
                       checked={strategies.precisionNitrogen}
                       onChange={(e) => setStrategies({ ...strategies, precisionNitrogen: e.target.checked })}
                     />
-                    <span>Precision NDVI Nutrient App</span>
+                    <span>Targeted Nutrient Use</span>
                   </label>
                 </div>
 
                 <div className="ctrl-group" style={{ marginTop: '16px' }}>
                   <div className="ctrl-label-row">
-                    <span>Budget Allocation ($k)</span>
+                    <span>Budget ($k)</span>
                     <strong>${budget},000 USD</strong>
                   </div>
                   <input
@@ -714,7 +741,7 @@ export default function ScenarioLab({ region, onBack }) {
               </div>
 
               <div className="control-card">
-                <h3>Inputs & model status</h3>
+                <h3>Settings & Calculation Status</h3>
                 <p style={{ fontSize: '15px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
                   {simResult ? `${simResult.assumptions[0]} ${simResult.assumptions[1]}` : 'Telemetry simulation parameters active.'}
                 </p>
@@ -730,13 +757,13 @@ export default function ScenarioLab({ region, onBack }) {
           {simResult && (
             <div className="lab-comparison-drawer">
               <div className="drawer-title-row">
-                <h3><Layers size={18} /> Baseline vs. Scenario Strategy Comparison</h3>
-                <span className="drawer-subtitle">Illustrative comparison · baseline → adjusted scenario</span>
+                <h3><Layers size={18} /> Baseline vs. Changed Conditions Comparison</h3>
+                <span className="drawer-subtitle">Example results · starting conditions → your changes</span>
               </div>
 
               <div className="drawer-metrics-grid">
                 <div className="metric-box">
-                  <span className="m-label">Water Demand</span>
+                  <span className="m-label">Water Needed</span>
                   <div className="m-val-row">
                     <span className="base-val">{simResult.baseline.waterDemand} m³/ha</span>
                     <span className="arrow">→</span>
@@ -754,7 +781,7 @@ export default function ScenarioLab({ region, onBack }) {
                 </div>
 
                 <div className="metric-box">
-                  <span className="m-label">Crop Stress Index</span>
+                  <span className="m-label">Crop Stress Level</span>
                   <div className="m-val-row">
                     <span className="base-val">{simResult.baseline.cropStress}%</span>
                     <span className="arrow">→</span>
@@ -765,7 +792,7 @@ export default function ScenarioLab({ region, onBack }) {
                 </div>
 
                 <div className="metric-box">
-                  <span className="m-label">Projected Yield</span>
+                  <span className="m-label">Estimated Crop Harvest</span>
                   <div className="m-val-row">
                     <span className="base-val">{simResult.baseline.yield} t/ha</span>
                     <span className="arrow">→</span>

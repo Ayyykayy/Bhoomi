@@ -83,9 +83,9 @@ export function calculateSimulation(region, environment, strategies, budget) {
       carbonOffsetTon: Math.round((budget / 10) * 1.8)
     },
     assumptions: [
-      `Rainfall simulation set to ${rainfall}mm (user-adjusted scenario input, not a historical anomaly).`,
-      `Illustrative calculations use scenario inputs; SMAP and MODIS data are not connected to this model.`,
-      `Economic ROI and yield estimates are demonstration projections for hackathon evaluation.`
+      `Rainfall used in this experiment: ${rainfall}mm (your chosen value, not a measured change from normal rainfall).`,
+      `These example calculations use your settings. SMAP and MODIS measurements are not connected to this calculation.`,
+      `Money-related and crop-harvest estimates are examples, not tested predictions.`
     ]
   };
 }

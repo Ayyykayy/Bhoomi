@@ -79,20 +79,20 @@ export default function RegionPanel({ location, onClose, onInvestigate }) {
       <p className="region-description">{location.description}</p>
 
       <div className="indicators-section-title">
-        Latest Available NASA Observations
+        Latest Available NASA Measurements
         <span className="nasa-time-badge" style={{ fontSize: '11px', fontWeight: '400', color: 'var(--text-secondary)', marginLeft: '8px' }}>
           ({climateData?.timeStandard || 'UTC'} {climateData?.observationDate ? `• ${climateData.observationDate}` : ''})
         </span>
       </div>
 
       <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '14px', lineHeight: '1.4' }}>
-        Note: Gridded NASA POWER observations for grid cell ({location.lat.toFixed(2)}, {location.lng.toFixed(2)}). Not field-level precision.
+        Note: NASA POWER measurements for the surrounding map area for grid cell ({location.lat.toFixed(2)}, {location.lng.toFixed(2)}). Not precise enough to measure an individual field.
       </div>
 
       {loading && (
         <div className="panel-status-box">
           <Loader2 size={18} className="spinner" />
-          <span>Querying NASA POWER telemetry...</span>
+          <span>Loading NASA POWER measurements...</span>
         </div>
       )}
 
@@ -126,7 +126,7 @@ export default function RegionPanel({ location, onClose, onInvestigate }) {
       {!loading && !error && (
         <div className="indicators-compact-grid">
           <div className="ind-box">
-            <span className="ind-label">Temperature (T2M)</span>
+            <span className="ind-label">Air Temperature (T2M)</span>
             <span className="ind-value">
               {formatVal(latest?.temperature?.value, latest?.temperature?.unit || '°C')}
             </span>

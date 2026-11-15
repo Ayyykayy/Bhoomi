@@ -1,0 +1,16 @@
+# Installed dependencies and generated output
+node_modules/
+dist/
+.vite/
+# Local Python environments and caches
+venv/
+.venv/
+.venv-*/
+__pycache__/
+*.pyc
+.pytest_cache/
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*.log

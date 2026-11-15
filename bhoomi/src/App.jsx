@@ -7,10 +7,19 @@ import RegionResearchDashboard from './components/Dashboard/RegionResearchDashbo
 import ScenarioLab from './components/Strategy/ScenarioLab';
 import { MapPin, ArrowLeft } from 'lucide-react';
 import './App.css';
+import ExperimentResults from './components/Strategy/ExperimentResults';
+import FarmActionPlan from './components/Strategy/FarmActionPlan';
+import SavedExperiments from './components/Strategy/SavedExperiments';
+import DataSourcesPage from './components/Strategy/DataSourcesPage';
+import { loadExperiments } from './services/experimentStorage';
 
 export default function App() {
   const getRouteFromHash = () => {
     const hash = window.location.hash;
+    if (hash.startsWith('#/results/')) return 'results';
+    if (hash.startsWith('#/action-plan/')) return 'action-plan';
+    if (hash === '#/saved-experiments') return 'saved-experiments';
+    if (hash === '#/data-sources') return 'data-sources';
     if (hash.startsWith('#/simulator')) return 'simulator';
     if (hash.startsWith('#/dashboard')) return 'dashboard';
     return 'globe';
@@ -62,9 +71,18 @@ export default function App() {
   const [selectedLocation, setSelectedLocation] = useState(getRegionFromHash());
   const [polygonArea, setPolygonArea] = useState(null);
   const [currentView, setCurrentView] = useState(getRouteFromHash());
+  const [routeHash, setRouteHash] = useState(window.location.hash);
+  const activeExperimentId = routeHash.split('/')[2];
+  const activeExperiment = loadExperiments().find(item => item.id === activeExperimentId) || null;
+  const navigateExperiment = (view, experiment) => { window.location.hash = `#/${view}/${experiment.id}`; };
+  const returnToExperimentSimulator = () => {
+    const location = activeExperiment?.location || selectedLocation;
+    updateRoute('simulator', location);
+  };
 
   useEffect(() => {
     const handleHashChange = () => {
+      setRouteHash(window.location.hash);
       setCurrentView(getRouteFromHash());
       const reg = getRegionFromHash();
       if (reg) {
@@ -167,6 +185,9 @@ export default function App() {
         isValidLocation ? (
           <ScenarioLab
             region={selectedLocation}
+            onSaved={experiment => navigateExperiment('results', experiment)}
+            onNavigateToSaved={() => { window.location.hash = '#/saved-experiments'; }}
+            onNavigateToSources={() => { window.location.hash = '#/data-sources'; }}
             onBack={() => updateRoute('dashboard', selectedLocation)}
           />
         ) : (
@@ -189,6 +210,18 @@ export default function App() {
           </div>
         )
       )}
+      {currentView === 'results' && <ExperimentResults key={activeExperimentId} experiment={activeExperiment}
+        onBack={returnToExperimentSimulator}
+        onNavigateToActionPlan={experiment => navigateExperiment('action-plan', experiment)}
+        onNavigateToSaved={() => { window.location.hash = '#/saved-experiments'; }} />}
+      {currentView === 'action-plan' && <FarmActionPlan key={activeExperimentId} experiment={activeExperiment}
+        onBack={() => { window.location.hash = activeExperiment ? `#/results/${activeExperiment.id}` : '#/saved-experiments'; }}
+        onNavigateToSimulator={returnToExperimentSimulator} />}
+      {currentView === 'saved-experiments' && <SavedExperiments
+        onBack={() => updateRoute('globe', selectedLocation)}
+        onNewExperiment={() => updateRoute('simulator', selectedLocation)}
+        onOpenExperiment={experiment => navigateExperiment('results', experiment)} />}
+      {currentView === 'data-sources' && <DataSourcesPage onBack={() => updateRoute('simulator', selectedLocation)} />}
     </div>
   );
 }

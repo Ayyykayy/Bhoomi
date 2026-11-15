@@ -112,7 +112,7 @@ export default function EarthGlobe({ selectedLocation, onSelectLocation }) {
         lat: lat,
         lng: lng,
         isCustom: true,
-        description: `Surface click at coordinates (${latStr}, ${lngStr}). Gridded NASA POWER observations retrieved for this point.`
+        description: `Surface click at coordinates (${latStr}, ${lngStr}). NASA POWER measurements for the surrounding map area retrieved for this point.`
       };
       onSelectLocation(fallbackLocation);
 
@@ -126,7 +126,7 @@ export default function EarthGlobe({ selectedLocation, onSelectLocation }) {
                 name: resolved.name,
                 country: resolved.country,
                 fullName: resolved.fullName,
-                description: `${resolved.fullName || resolved.name}. Gridded NASA POWER observations retrieved for exact coordinates (${lat.toFixed(4)}, ${lng.toFixed(4)}).`
+                description: `${resolved.fullName || resolved.name}. NASA POWER measurements for the surrounding map area retrieved for exact coordinates (${lat.toFixed(4)}, ${lng.toFixed(4)}).`
               };
             }
             return prev;

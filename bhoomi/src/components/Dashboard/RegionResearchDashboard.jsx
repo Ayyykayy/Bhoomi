@@ -162,7 +162,7 @@ export default function RegionResearchDashboard({ region, onBack, onProceedToStr
             <ArrowLeft size={18} /> Return to Globe
           </button>
           <h1>
-            Regional Research Workspace <span className="nasa-badge" style={{ background: '#3b82f6', color: '#fff', fontSize: '11px', padding: '2px 8px', borderRadius: '4px', fontWeight: 600, marginLeft: '8px' }}>NASA POWER Live</span>
+            Regional Research <span className="nasa-badge" style={{ background: '#3b82f6', color: '#fff', fontSize: '11px', padding: '2px 8px', borderRadius: '4px', fontWeight: 600, marginLeft: '8px' }}>NASA POWER Live</span>
           </h1>
         </div>
         <div className="rd-nav-actions">
@@ -179,7 +179,7 @@ export default function RegionResearchDashboard({ region, onBack, onProceedToStr
           <div className="overview-left">
             <span className="overview-country">{region.country || 'Global Coordinate'}</span>
             <h2>{region.name}</h2>
-            <p className="overview-desc">{region.description || `Gridded telemetry analysis for coordinates (${region.lat.toFixed(4)}, ${region.lng.toFixed(4)}).`}</p>
+            <p className="overview-desc">{region.description || `Measurements for the area around (${region.lat.toFixed(4)}, ${region.lng.toFixed(4)}).`}</p>
           </div>
           <div className="overview-right">
             <div className="overview-meta-card">
@@ -187,19 +187,19 @@ export default function RegionResearchDashboard({ region, onBack, onProceedToStr
               <span className="meta-val">{region.lat.toFixed(2)}°N, {region.lng.toFixed(2)}°E</span>
             </div>
             <div className="overview-meta-card">
-              <span className="meta-label">Data Completeness</span>
+              <span className="meta-label">Data Available</span>
               <span className="meta-val">{obsData?.completenessPercentage !== undefined ? `${obsData.completenessPercentage}%` : 'Loading...'}</span>
             </div>
             <div className="overview-meta-card">
               <span className="meta-label">Data Source</span>
-              <span className="meta-val">{obsData?.dataSource || 'NASA POWER API (Agroclimatology)'}</span>
+              <span className="meta-val">{obsData?.dataSource || 'NASA POWER weather data'}</span>
             </div>
           </div>
         </div>
 
         {/* Section B: Environmental Indicators (Live from NASA POWER) */}
         <div>
-          <h3>Key Environmental Indicators (Independently Verified Latest Observations)</h3>
+          <h3>Local Conditions (Latest Available Measurements)</h3>
           <div className="indicators-grid-4">
             <div className="indicator-glass-card">
               <span className="ind-title">Surface Soil Wetness</span>
@@ -207,12 +207,12 @@ export default function RegionResearchDashboard({ region, onBack, onProceedToStr
                 {latestSoil.value !== null ? `${(latestSoil.value * 100).toFixed(1)}% Saturation` : 'Unavailable'}
               </div>
               <div className="ind-sub-desc">
-                GWETTOP 0-5cm relative saturation ({latestSoil.date || 'No valid date'}). Coverage: {soilCompleteness}%. Not volumetric.
+                Surface soil wetness (GWETTOP), top 5 cm ({latestSoil.date || 'No valid date'}). Coverage: {soilCompleteness}%. This is relative wetness, not the amount of water in the soil.
               </div>
             </div>
 
             <div className="indicator-glass-card">
-              <span className="ind-title">Vegetation Health (NDVI)</span>
+              <span className="ind-title">Plant Health (NDVI)</span>
               <div className="ind-main-val" style={{ fontSize: '15px', color: 'var(--text-secondary)' }}>
                 Not Connected
               </div>
@@ -220,7 +220,7 @@ export default function RegionResearchDashboard({ region, onBack, onProceedToStr
             </div>
 
             <div className="indicator-glass-card">
-              <span className="ind-title">Precipitation (PRECTOTCORR)</span>
+              <span className="ind-title">Rainfall (PRECTOTCORR)</span>
               <div className="ind-main-val">
                 {latestPrec.value !== null ? `${latestPrec.value} mm/day` : 'Unavailable'}
               </div>
@@ -230,7 +230,7 @@ export default function RegionResearchDashboard({ region, onBack, onProceedToStr
             </div>
 
             <div className="indicator-glass-card">
-              <span className="ind-title">Temperature (T2M)</span>
+              <span className="ind-title">Air Temperature (T2M)</span>
               <div className="ind-main-val">
                 {latestTemp.value !== null ? `${latestTemp.value} °C` : 'Unavailable'}
               </div>
@@ -244,7 +244,7 @@ export default function RegionResearchDashboard({ region, onBack, onProceedToStr
         {/* Section C: Detailed Leaflet Geographic Map with Verified NASA GIBS Layers */}
         <div>
           <div className="chart-header-flex">
-            <h3>Detailed Geographic Map & NASA Layers</h3>
+            <h3>Detailed Map & NASA Data Layers</h3>
             <div className="time-range-tabs">
               <button className={`time-tab ${activeLayer === 'base' ? 'active' : ''}`} onClick={() => setActiveLayer('base')}>Base Map</button>
               <button className={`time-tab ${activeLayer === 'satellite' ? 'active' : ''}`} onClick={() => setActiveLayer('satellite')}>Satellite</button>
@@ -316,7 +316,7 @@ export default function RegionResearchDashboard({ region, onBack, onProceedToStr
         {/* Section D: Historical Analysis (Recharts with Real Observations) */}
         <div>
           <div className="chart-header-flex">
-            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Calendar size={18} /> Real Historical Climatological Observations</h3>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Calendar size={18} /> Past Weather & Soil Measurements</h3>
             <div className="time-range-tabs">
               <button className={`time-tab ${timeRange === '3m' ? 'active' : ''}`} onClick={() => setTimeRange('3m')}>3M</button>
               <button className={`time-tab ${timeRange === '6m' ? 'active' : ''}`} onClick={() => setTimeRange('6m')}>6M</button>
@@ -327,7 +327,7 @@ export default function RegionResearchDashboard({ region, onBack, onProceedToStr
           {loadingObs && (
             <div className="chart-glass-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 260, gap: '12px', color: 'var(--text-secondary)' }}>
               <Loader2 size={24} className="spinner" style={{ animation: 'spin 1s linear infinite' }} />
-              <span>Fetching NASA POWER historical records for {timeRange.toUpperCase()} range...</span>
+              <span>Loading past NASA POWER measurements for {timeRange.toUpperCase()} range...</span>
             </div>
           )}
 
@@ -343,7 +343,7 @@ export default function RegionResearchDashboard({ region, onBack, onProceedToStr
           {!loadingObs && !obsError && (
             <div className="charts-grid-2">
               <div className="chart-glass-card">
-                <h4>Surface Soil Wetness (GWETTOP Fraction 0-1)</h4>
+                <h4>Surface Soil Wetness (GWETTOP, 0–1 scale)</h4>
                 <div style={{ width: '100%', height: 260, marginTop: '16px' }}>
                   <ResponsiveContainer>
                     <LineChart data={records.map(r => ({ date: r.date, val: r.soilMoistureTop?.value }))}>
@@ -358,7 +358,7 @@ export default function RegionResearchDashboard({ region, onBack, onProceedToStr
               </div>
 
               <div className="chart-glass-card">
-                <h4>Corrected Precipitation (mm/day)</h4>
+                <h4>Rainfall (mm/day)</h4>
                 <div style={{ width: '100%', height: 260, marginTop: '16px' }}>
                   <ResponsiveContainer>
                     <BarChart data={records.map(r => ({ date: r.date, val: r.precipitation?.value }))}>
@@ -377,15 +377,15 @@ export default function RegionResearchDashboard({ region, onBack, onProceedToStr
 
         {/* Section E: Research Insights */}
         <div className="insights-glass-card">
-          <h3>Research insights & Data Traceability</h3>
+          <h3>Data Sources & Missing Measurements</h3>
           <div className="insights-list">
             <div className="insight-item">
-              <h4>Telemetry Source</h4>
-              <p>Queried directly from NASA POWER API (Agroclimatology Community - GEOS-5 FP). Data completeness: {obsData?.completenessPercentage}%.</p>
+              <h4>Data Source</h4>
+              <p>Retrieved from NASA POWER weather data. Data available: {obsData?.completenessPercentage}%.</p>
             </div>
             <div className="insight-item">
-              <h4>Missing-Data Handling</h4>
-              <p>Missing daily records (-999 values) are explicitly filtered and shown as gaps without synthetic interpolation or data fabrication.</p>
+              <h4>How Missing Data Is Shown</h4>
+              <p>Missing measurements appear as gaps. The app does not invent values to fill them.</p>
             </div>
           </div>
           <div className="scientific-disclaimer">
