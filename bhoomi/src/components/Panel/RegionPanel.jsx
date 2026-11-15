@@ -44,6 +44,8 @@ export default function RegionPanel({ location, onClose, onInvestigate }) {
   if (!location) return null;
 
   const latest = climateData?.latestMeasurement;
+  const soilReading = climateData?.latestByParameter?.soilMoistureTop;
+  const rootReading = climateData?.latestByParameter?.soilMoistureRoot;
 
   const formatVal = (val, unit) => {
     if (val === null || val === undefined) return 'Unavailable';
@@ -146,10 +148,12 @@ export default function RegionPanel({ location, onClose, onInvestigate }) {
           <div className="ind-box">
             <span className="ind-label" title="Surface soil wetness (0-1 fraction relative saturation)">Surface Soil Wetness</span>
             <span className="ind-value" title="NASA POWER GWETTOP Surface Soil Wetness (0-1 fraction relative saturation). Not volumetric moisture.">
-              {latest?.soilMoistureTop?.value !== null && latest?.soilMoistureTop?.value !== undefined
-                ? `${(latest.soilMoistureTop.value * 100).toFixed(1)}% Saturation`
+              {soilReading?.value !== null && soilReading?.value !== undefined
+                ? `${(soilReading.value * 100).toFixed(1)}% Saturation`
                 : 'Unavailable'}
             </span>
+            {soilReading?.date && <span className="ind-label">Top 5 cm · {soilReading.date}</span>}
+            {rootReading?.value != null && <span className="ind-label">Root zone: {(rootReading.value * 100).toFixed(1)}% saturation · {rootReading.date}</span>}
           </div>
         </div>
       )}

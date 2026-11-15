@@ -1,210 +1,150 @@
-import logging
+"""NASA POWER integration, consolidating the reviewed teammate backend.
+Preserves BHOOMI's frontend contract and the teammate's flat records/summary.
+"""
+from datetime import datetime, timedelta, timezone
+from math import isfinite
+from threading import RLock
+from urllib.parse import urlencode
+
 import requests
-from datetime import datetime, timedelta
-from cachetools import TTLCache, cached
+from cachetools import TTLCache
 from fastapi import HTTPException
+from app.services.data_processor import summarize_observations
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("bhoomi.nasa_power")
+NASA_POWER_URL = "https://power.larc.nasa.gov/api/temporal/daily/point"
+_cache = TTLCache(maxsize=100, ttl=3600)
+_cache_lock = RLock()
+_FIELDS = {
+    "temperature": ("T2M", "°C", "Air temperature at 2 metres"),
+    "precipitation": ("PRECTOTCORR", "mm/day", "Corrected daily precipitation"),
+    "relativeHumidity": ("RH2M", "%", "Relative humidity at 2 metres"),
+    "soilMoistureTop": ("GWETTOP", "1", "Surface soil wetness; relative saturation, not volumetric water content"),
+    "soilMoistureRoot": ("GWETROOT", "1", "Root-zone soil wetness; relative saturation, not volumetric water content"),
+}
 
-# Cache requests for 1 hour to prevent redundant API calls
-nasa_cache = TTLCache(maxsize=100, ttl=3600)
+_WEATHER_FIELDS = ("temperature", "precipitation", "relativeHumidity")
+_SOIL_FIELDS = ("soilMoistureTop", "soilMoistureRoot")
 
-def validate_coordinates(lat: float, lon: float):
-    if not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid geographic coordinates: lat={lat}, lon={lon}. Lat must be [-90, 90], Lon must be [-180, 180]."
-        )
+def validate_coordinates(lat, lon):
+    if any(isinstance(v, bool) or not isinstance(v, (int, float)) or not isfinite(v) for v in (lat, lon)) or not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        raise HTTPException(422, "Latitude must be -90 to 90 and longitude -180 to 180.")
 
-def generate_date_range(start_str: str, end_str: str):
-    try:
-        start_date = datetime.strptime(start_str, "%Y%m%d")
-        end_date = datetime.strptime(end_str, "%Y%m%d")
-    except ValueError:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid date format. Expected YYYYMMDD."
-        )
+def parse_date(value):
+    for fmt in ("%Y%m%d", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(value, fmt).date()
+        except (ValueError, TypeError):
+            pass
+    raise HTTPException(422, "Use YYYYMMDD or YYYY-MM-DD dates.")
 
-    if start_date > end_date:
-        raise HTTPException(
-            status_code=400,
-            detail="Start date cannot be after end date."
-        )
+def generate_date_range(start, end):
+    first, last = parse_date(start), parse_date(end)
+    count = (last - first).days + 1
+    if count < 1 or count > 366:
+        raise HTTPException(422, "Choose an ordered range of 1 to 366 days.")
+    if last >= datetime.now(timezone.utc).date():
+        raise HTTPException(422, "Use completed historical dates before today.")
+    return [(first + timedelta(days=i)).strftime("%Y%m%d") for i in range(count)]
 
-    dates = []
-    curr = start_date
-    while curr <= end_date:
-        dates.append(curr.strftime("%Y%m%d"))
-        curr += timedelta(days=1)
-    return dates
+def clean_number(value, fill_value=-999):
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not isfinite(value):
+        return None
+    return None if value == fill_value or value <= -900 else float(value)
 
-@cached(nasa_cache)
-def fetch_nasa_power_range(lat: float, lon: float, start: str, end: str):
-    """
-    Fetch historical daily climate observations from NASA POWER API for a given date range (YYYYMMDD).
-    Parameters:
-      - lat: Latitude (-90 to 90)
-      - lon: Longitude (-180 to 180)
-      - start: Start date YYYYMMDD
-      - end: End date YYYYMMDD
-    Parameters requested:
-      - T2M: Temperature at 2 Meters (°C)
-      - PRECTOTCORR: Corrected Precipitation (mm/day)
-      - RH2M: Relative Humidity at 2 Meters (%)
-      - GWETTOP: Surface Soil Wetness (0-1 fraction, root zone top)
-      - GWETROOT: Root Zone Soil Moisture (0-1 fraction)
-    """
-    validate_coordinates(lat, lon)
-    expected_dates = generate_date_range(start, end)
-
-    url = "https://power.larc.nasa.gov/api/temporal/daily/point"
-    params = {
-        "parameters": "T2M,PRECTOTCORR,RH2M,GWETTOP,GWETROOT",
-        "community": "AG",
-        "longitude": lon,
-        "latitude": lat,
-        "start": start,
-        "end": end,
-        "format": "JSON",
-        "time-standard": "UTC"
-    }
-
-    logger.info(f"Querying NASA POWER API for lat={lat}, lon={lon}, start={start}, end={end}")
-
-    try:
-        # Bounded upstream request budget: 12 seconds
-        response = requests.get(url, params=params, timeout=12)
-
-        if response.status_code != 200:
-            logger.error(f"NASA POWER API returned status {response.status_code}: {response.text}")
-            raise HTTPException(
-                status_code=502,
-                detail=f"NASA POWER API returned error status {response.status_code}"
-            )
-
-        data = response.json()
-        properties = data.get("properties", {})
-        parameter_data = properties.get("parameter", {})
-
-        t2m_dict = parameter_data.get("T2M", {})
-        prec_dict = parameter_data.get("PRECTOTCORR", {})
-        rh_dict = parameter_data.get("RH2M", {})
-        gwettop_dict = parameter_data.get("GWETTOP", {})
-        gwetroot_dict = parameter_data.get("GWETROOT", {})
-
-        records = []
-        valid_count = 0
-        total_count = len(expected_dates)
-
-        for d in expected_dates:
-            # Format date YYYYMMDD -> YYYY-MM-DD
-            formatted_date = f"{d[:4]}-{d[4:6]}-{d[6:]}"
-
-            t2m_val = t2m_dict.get(d)
-            prec_val = prec_dict.get(d)
-            rh_val = rh_dict.get(d)
-            gwettop_val = gwettop_dict.get(d)
-            gwetroot_val = gwetroot_dict.get(d)
-
-            # Handle missing values (-999 or None) without fabricating data
-            temp = t2m_val if t2m_val is not None and t2m_val != -999 else None
-            prec = prec_val if prec_val is not None and prec_val != -999 else None
-            rh = rh_val if rh_val is not None and rh_val != -999 else None
-            gwettop = gwettop_val if gwettop_val is not None and gwettop_val != -999 else None
-            gwetroot = gwetroot_val if gwetroot_val is not None and gwetroot_val != -999 else None
-
-            if temp is not None or prec is not None or rh is not None or gwettop is not None:
-                valid_count += 1
-
-            records.append({
-                "date": formatted_date,
-                "temperature": {
-                    "value": temp,
-                    "unit": "°C",
-                    "description": "Temperature at 2 Meters"
-                },
-                "precipitation": {
-                    "value": prec,
-                    "unit": "mm/day",
-                    "description": "Corrected Precipitation"
-                },
-                "relativeHumidity": {
-                    "value": rh,
-                    "unit": "%",
-                    "description": "Relative Humidity at 2 Meters"
-                },
-                "soilMoistureTop": {
-                    "value": gwettop,
-                    "unit": "1",
-                    "description": "NASA POWER GWETTOP Surface Soil Wetness (0-1 fraction)"
-                },
-                "soilMoistureRoot": {
-                    "value": gwetroot,
-                    "unit": "1",
-                    "description": "NASA POWER GWETROOT Root Zone Soil Wetness (0-1 fraction)"
-                }
-            })
-
-        completeness_pct = round((valid_count / total_count) * 100, 2) if total_count > 0 else 0.0
-
-        return {
-            "latitude": lat,
-            "longitude": lon,
-            "startDate": f"{start[:4]}-{start[4:6]}-{start[6:]}",
-            "endDate": f"{end[:4]}-{end[4:6]}-{end[6:]}",
-            "timeStandard": "UTC",
-            "dataSource": "NASA POWER API (Agroclimatology Community - GEOS-5 FP)",
-            "sourceUrl": f"https://power.larc.nasa.gov/api/temporal/daily/point?parameters=T2M,PRECTOTCORR,RH2M,GWETTOP,GWETROOT&community=AG&longitude={lon}&latitude={lat}&start={start}&end={end}&format=JSON&time-standard=UTC",
-            "retrievedAt": datetime.utcnow().isoformat() + "Z",
-            "completenessPercentage": completeness_pct,
-            "records": records
-        }
-
-    except requests.exceptions.Timeout as e:
-        logger.error(f"NASA POWER API request timed out: {e}")
-        raise HTTPException(
-            status_code=504,
-            detail="NASA POWER telemetry service timed out upstream."
-        )
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Network error communicating with NASA POWER API: {e}")
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to connect to NASA POWER telemetry service."
-        )
-
-def fetch_nasa_power_climate(lat: float, lon: float):
-    """
-    Convenience method for GET /api/climate using a documented recent historical default period
-    (past 30 completed days from 35 days ago to 5 days ago).
-    """
-    end_date = datetime.utcnow() - timedelta(days=5)
-    start_date = end_date - timedelta(days=30)
-
-    start_str = start_date.strftime("%Y%m%d")
-    end_str = end_date.strftime("%Y%m%d")
-
-    result = fetch_nasa_power_range(lat, lon, start_str, end_str)
-
-    # Return latest available record or summary for /api/climate without fabricating missing values
-    records = result.get("records", [])
-    valid_records = [r for r in records if r["temperature"]["value"] is not None or r["precipitation"]["value"] is not None or r["relativeHumidity"]["value"] is not None or r["soilMoistureTop"]["value"] is not None]
-    latest = valid_records[-1] if valid_records else (records[-1] if records else None)
-
+def normalize_payload(payload, lat, lon, dates, source_url):
+    if not isinstance(payload, dict):
+        raise ValueError("Response is not an object")
+    parameters = payload.get("properties", {}).get("parameter")
+    if not isinstance(parameters, dict):
+        raise ValueError("NASA response has no parameter data")
+    # Temperature and rainfall are the teammate's required core parameters.
+    for name in ("T2M", "PRECTOTCORR"):
+        if not isinstance(parameters.get(name), dict):
+            raise ValueError("Missing required parameter")
+    header = payload.get("header") or {}
+    metadata = payload.get("parameters") or {}
+    if not isinstance(header, dict) or not isinstance(metadata, dict):
+        raise ValueError("Invalid response metadata")
+    records, flat_records = [], []
+    for day in dates:
+        row = {"date": datetime.strptime(day, "%Y%m%d").date().isoformat()}
+        for field, (parameter, fallback_unit, description) in _FIELDS.items():
+            values = parameters.get(parameter, {})
+            info = metadata.get(parameter, {})
+            if not isinstance(values, dict) or not isinstance(info, dict):
+                if field in _SOIL_FIELDS:
+                    values, info = {}, {}
+                else:
+                    raise ValueError("Invalid parameter data")
+            value = clean_number(values.get(day), header.get("fill_value", -999))
+            if field in _SOIL_FIELDS and value is not None and not 0 <= value <= 1:
+                value = None
+            row[field] = {"value": value, "unit": info.get("units") or fallback_unit,
+                          "description": description}
+        records.append(row)
+        flat_records.append({"date": row["date"], "temperature_c": row["temperature"]["value"],
+                             "precipitation_mm_day": row["precipitation"]["value"]})
+    coverage = {field: round(100 * sum(r[field]["value"] is not None for r in records) / len(records), 2)
+                for field in _FIELDS}
+    latest_by_parameter = {field: next(({"date": r["date"], **r[field]} for r in reversed(records)
+                                      if r[field]["value"] is not None), None)
+                           for field in coverage}
+    valid = [r for r in records if any(r[field]["value"] is not None for field in _WEATHER_FIELDS)]
+    latest = valid[-1] if valid else None
+    complete_weather_days = sum(all(r[f]["value"] is not None for f in _WEATHER_FIELDS) for r in records)
     return {
-        "latitude": lat,
-        "longitude": lon,
-        "defaultPeriod": {
-            "startDate": result["startDate"],
-            "endDate": result["endDate"]
+        "latitude": lat, "longitude": lon, "startDate": records[0]["date"], "endDate": records[-1]["date"],
+        "timeStandard": "UTC", "dataSource": "NASA POWER (Agroclimatology)", "sourceUrl": source_url,
+        "retrievedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "observationDate": latest["date"] if latest else None, "latestMeasurement": latest,
+        "latestByParameter": latest_by_parameter, "completenessByParameter": coverage,
+        "completenessPercentage": round(100 * complete_weather_days / len(records), 2),
+        "completenessScope": "Days with temperature, rainfall and humidity; excludes unconnected datasets",
+        "datasetStatus": {"weather": "connected", "soilMoisture": "available" if any(coverage[f] > 0 for f in _SOIL_FIELDS) else "unavailable", "ndvi": "not_connected"},
+        "soilMetadata": {
+            "source": "NASA POWER model-based land analysis",
+            "upstreamSources": header.get("sources", []),
+            "kind": "relative_saturation", "unit": "1", "validRange": [0, 1],
+            "parameters": {"surface": "GWETTOP", "rootZone": "GWETROOT"},
+            "surfaceDepthCm": [0, 5], "rootZoneDepthCm": [0, 100],
+            "limitations": "Model-based grid-area estimates, not field measurements or direct SMAP retrievals. Not volumetric moisture. No per-sample quality flags supplied by this POWER response.",
+            "returnedGeometry": payload.get("geometry"),
+            "sourceUrl": source_url,
         },
-        "timeStandard": result["timeStandard"],
-        "observationDate": latest["date"] if latest else None,
-        "dataSource": result["dataSource"],
-        "sourceUrl": result["sourceUrl"],
-        "retrievedAt": result["retrievedAt"],
-        "latestMeasurement": latest,
-        "records": records
+        "records": records, "summary": summarize_observations(flat_records),
+        "flatRecords": flat_records,
+        "location": {"latitude": lat, "longitude": lon},
+        "period": {"start": records[0]["date"], "end": records[-1]["date"]},
+        "source": "NASA POWER", "time_standard": "UTC",
     }
+
+def fetch_nasa_power_range(lat, lon, start, end):
+    validate_coordinates(lat, lon)
+    dates = generate_date_range(start, end)
+    key = (lat, lon, dates[0], dates[-1])
+    with _cache_lock:
+        if key in _cache:
+            return _cache[key]
+    params = {"latitude": lat, "longitude": lon, "start": dates[0], "end": dates[-1],
+              "parameters": "T2M,PRECTOTCORR,RH2M,GWETTOP,GWETROOT", "community": "AG", "format": "JSON", "time-standard": "UTC"}
+    try:
+        response = requests.get(NASA_POWER_URL, params=params, timeout=(3, 10))
+        response.raise_for_status()
+        result = normalize_payload(response.json(), lat, lon, dates, NASA_POWER_URL + "?" + urlencode(params))
+    except requests.exceptions.Timeout as error:
+        raise HTTPException(504, "NASA POWER did not respond in time.") from error
+    except requests.exceptions.HTTPError as error:
+        raise HTTPException(502, "NASA POWER rejected the request.") from error
+    except requests.exceptions.RequestException as error:
+        raise HTTPException(503, "Could not connect to NASA POWER.") from error
+    except (ValueError, TypeError, KeyError, AttributeError) as error:
+        raise HTTPException(502, "NASA POWER returned an invalid response.") from error
+    with _cache_lock:
+        _cache[key] = result
+    return result
+
+def fetch_nasa_power_climate(lat, lon):
+    end = datetime.now(timezone.utc).date() - timedelta(days=5)
+    start = end - timedelta(days=29)
+    result = fetch_nasa_power_range(lat, lon, start.isoformat(), end.isoformat())
+    return {**result, "defaultPeriod": {"startDate": result["startDate"], "endDate": result["endDate"]}}

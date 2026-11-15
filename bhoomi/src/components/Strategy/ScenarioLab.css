@@ -872,3 +872,83 @@
  .scenario-lab-overlay .header-actions-right { flex-wrap: wrap; }
 }
 .scenario-lab-overlay .header-actions-right { flex-wrap: wrap; justify-content: flex-end; }
+
+/* Simulator map controls share a flow layout, so legends cannot cover the selectors. */
+.scenario-lab-overlay .lab-map-controls-stack { position: absolute; top: 24px; left: 24px; width: min(420px, calc(50% - 36px)); max-height: calc(100% - 60px); overflow-y: auto; z-index: 1100; scrollbar-width: thin; }
+.scenario-lab-overlay .lab-map-controls-stack .earth-search-container,
+.scenario-lab-overlay .lab-map-controls-stack .map-layer-toolbar,
+.scenario-lab-overlay .lab-map-controls-stack .map-ndvi-legend { position: relative; inset: auto; width: 100% !important; max-width: 100% !important; box-sizing: border-box; margin: 0 0 12px; }
+.scenario-lab-overlay .lab-map-controls-stack .earth-autocomplete-dropdown { position: relative; }
+.scenario-lab-overlay .lab-map-controls-stack .layer-btns-row { flex-wrap: wrap; overflow: visible; }
+.scenario-lab-overlay .lab-map-controls-stack .map-ndvi-legend img { max-height: 130px; object-fit: contain; }
+.scenario-lab-overlay .lab-map-controls-stack .map-ndvi-legend label span { font-size: 11px; line-height: 1.4; }
+.scenario-lab-overlay .lab-soil-input-note { display: block; font-size: 11px; line-height: 1.5; color: var(--text-secondary); margin-top: 6px; }
+.scenario-lab-overlay .frc-item small { font-size: 10px; color: var(--text-secondary); line-height: 1.4; }
+@media (max-width: 700px) {
+  .scenario-lab-overlay .lab-map-controls-stack { width: calc(100% - 48px); max-height: 230px; }
+  .scenario-lab-overlay .map-drawing-toolbar { top: 270px; left: 24px; right: auto; }
+  .scenario-lab-overlay .floating-research-glass-card { bottom: 30px; max-height: 190px; overflow-y: auto; }
+}
+
+.scenario-lab-overlay .sim-range-intro { font-size: 12px; line-height: 1.5; color: var(--text-secondary); margin: 0 0 16px; }
+.scenario-lab-overlay .sim-range-row + .sim-range-row { border-top: 1px solid var(--border-color); margin-top: 14px; padding-top: 14px; }
+.scenario-lab-overlay .sim-range-heading { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; margin-bottom: 10px; }
+.scenario-lab-overlay .sim-range-heading span { color: #91baff; }
+.scenario-lab-overlay .sim-range-track { height: 7px; border-radius: 5px; position: relative; margin: 0 4px; }
+.scenario-lab-overlay .sim-range-track i { position: absolute; top: -4px; height: 15px; width: 4px; transform: translateX(-50%); border-radius: 2px; background: #fff; border: 1px solid #17202b; box-shadow: 0 0 0 1px #fff; }
+.scenario-lab-overlay .sim-range-ticks { display: flex; justify-content: space-between; gap: 6px; margin-top: 8px; color: var(--text-secondary); font-size: 10px; }
+.scenario-lab-overlay .sim-range-row p { margin: 8px 0 0; color: var(--text-secondary); font-size: 11px; line-height: 1.5; }
+.scenario-lab-overlay .sim-range-sources { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; font-size: 10px; }
+.scenario-lab-overlay .sim-range-sources a { color: #91baff; }
+
+/* Fixed range reference directly beneath the map layer selector. */
+.scenario-lab-overlay .lab-map-controls-stack .sim-range-guide { margin: 0 0 12px; padding: 14px 16px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border-color); box-shadow: var(--shadow); }
+.scenario-lab-overlay .lab-map-controls-stack .sim-range-guide h3 { font-size: 14px; margin: 0 0 8px; }
+.scenario-lab-overlay .lab-map-controls-stack .sim-range-track { height: 9px; box-shadow: 0 0 8px #399dff22; }
+.scenario-lab-overlay .lab-map-controls-stack .sim-range-heading { margin-bottom: 7px; }
+.scenario-lab-overlay .lab-map-controls-stack .sim-range-row + .sim-range-row { margin-top: 10px; padding-top: 10px; }
+
+.scenario-lab-overlay .sim-compact-guide { padding: 10px 12px; margin: 0 0 12px; background: var(--surface); border: 1px solid var(--border-color); border-radius: 10px; }
+.scenario-lab-overlay .sim-compact-guide-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px 12px; }
+.scenario-lab-overlay .sim-compact-scale strong { display: block; font-size: 10px; font-weight: 600; margin-bottom: 5px; }
+.scenario-lab-overlay .sim-compact-track { height: 5px; border-radius: 4px; }
+.scenario-lab-overlay .sim-compact-labels { display: flex; justify-content: space-between; gap: 3px; font-size: 8px; color: var(--text-secondary); margin-top: 3px; white-space: nowrap; }
+.scenario-lab-overlay .sim-compact-guide small { display: block; margin-top: 8px; font-size: 9px; line-height: 1.3; color: var(--text-secondary); }
+
+.scenario-lab-overlay .map-focus-btn { width: auto; padding: 0 12px; white-space: nowrap; font-size: 12px; }
+.scenario-lab-overlay .map-focus-btn[aria-pressed="true"] { background: var(--primary-blue); color: #fff; }
+.scenario-lab-overlay.map-focused .lab-map-controls-stack,
+.scenario-lab-overlay.map-focused .floating-research-glass-card,
+.scenario-lab-overlay.map-focused .lab-floating-controls-panel,
+.scenario-lab-overlay.map-focused .sidebar-toggle-btn,
+.scenario-lab-overlay.map-focused .lab-comparison-drawer { display: none !important; }
+.scenario-lab-overlay.map-focused .lab-map-container { width: 100% !important; }
+.scenario-lab-overlay.map-focused .map-drawing-toolbar { top: 16px; right: 16px; left: auto; }
+
+.scenario-lab-overlay .map-panel-toggle { display: flex; align-items: center; justify-content: space-between; gap: 14px; background: var(--surface); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; font-size: 12px; cursor: pointer; margin-bottom: 8px; box-shadow: var(--shadow); }
+.scenario-lab-overlay .map-panel-toggle:hover { border-color: var(--primary-blue); }
+.scenario-lab-overlay .map-panel-toggle:focus-visible { outline: 2px solid var(--primary-blue); outline-offset: 2px; }
+.scenario-lab-overlay .location-info-toggle { margin: 0; padding: 5px 8px; box-shadow: none; white-space: nowrap; font-size: 11px; }
+.scenario-lab-overlay .lab-map-controls-stack.is-collapsed { overflow: visible; }
+.scenario-lab-overlay #simulator-map-control-content[hidden],
+.scenario-lab-overlay #simulator-location-info[hidden] { display: none !important; }
+
+.scenario-lab-overlay .ndvi-retry-btn { margin-top: 6px; padding: 5px 7px; border: 1px solid var(--border-color); background: var(--surface); color: #91baff; font-size: 11px; border-radius: 6px; cursor: pointer; }
+
+.scenario-lab-overlay .metric-box { transition: background-color .2s, border-color .2s; }
+.scenario-lab-overlay .metric-improved { background: #20c77a18; border-color: #26b97b88; --metric-color: #34d995; }
+.scenario-lab-overlay .metric-worse { background: #f0545418; border-color: #f0646488; --metric-color: #ff8181; }
+.scenario-lab-overlay .metric-rising { background: #388cff18; border-color: #559cff88; --metric-color: #78b4ff; }
+.scenario-lab-overlay .metric-falling { background: #edac3518; border-color: #edac3588; --metric-color: #f2bf5e; }
+.scenario-lab-overlay .metric-neutral { --metric-color: var(--text-secondary); }
+.scenario-lab-overlay .metric-box .mod-val { color: var(--metric-color) !important; }
+.scenario-lab-overlay .metric-box .m-label { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; }
+.scenario-lab-overlay .metric-change-label { font-size: 10px; color: var(--metric-color); font-weight: 600; }
+
+/* Larger comparison-card text for easier reading. */
+.scenario-lab-overlay .metric-box .m-label { font-size: 14px; line-height: 1.4; }
+.scenario-lab-overlay .metric-box .metric-change-label { font-size: 12px; }
+.scenario-lab-overlay .metric-box .m-val-row { font-size: 18px; line-height: 1.5; flex-wrap: wrap; }
+.scenario-lab-overlay .metric-box .base-val { font-size: 15px; }
+.scenario-lab-overlay .metric-box .mod-val { font-size: 18px; font-weight: 700; }
+.scenario-lab-overlay .metric-box .arrow { font-size: 18px; }

@@ -12,7 +12,7 @@ export default function DataSourcesPage({ onBack }) {
             <ArrowLeft size={18} /> Return to Globe
           </button>
           <div>
-            <h1>Data Sources & Methods</h1>
+            <h1 className="bhoomi-page-title">Data Sources & Methods</h1>
             <span className="ds-subtitle">
               Where the data comes from, what is connected, and how calculations work
             </span>

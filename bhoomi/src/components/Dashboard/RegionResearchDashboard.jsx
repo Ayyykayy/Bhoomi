@@ -1,9 +1,14 @@
+import { fetchNdvi } from '../../services/ndviClient';
+import { RainfallDate, RainfallTiles } from './RainfallMapStatus';
 import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { ArrowLeft, ArrowRight, Calendar, Loader2, AlertCircle } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import './RegionResearchDashboard.css';
+import { describeSoilContext } from '../../services/soilContext';
+import ConditionScale from './ConditionScale';
+import { useGibsLayer } from '../../hooks/useGibsLayer';
 
 // Helper component to recenter Leaflet map when region changes
 function MapCenterUpdater({ center, zoom }) {
@@ -20,8 +25,14 @@ export default function RegionResearchDashboard({ region, onBack, onProceedToStr
   const [timeRange, setTimeRange] = useState('3m'); // '3m' | '6m' | '1y'
   const [activeLayer, setActiveLayer] = useState('satellite'); // 'base' | 'satellite' | 'soil' | 'ndvi' | 'rainfall'
   const [obsData, setObsData] = useState(null);
+  const [ndviData, setNdviData] = useState(null);
+  const [ndviStatus, setNdviStatus] = useState('loading');
   const [loadingObs, setLoadingObs] = useState(false);
   const [obsError, setObsError] = useState(null);
+  const [rainfallDate, setRainfallDate] = useState(null);
+  const imagery = useGibsLayer(activeLayer, rainfallDate);
+  const [imageryError, setImageryError] = useState(false);
+  useEffect(() => { setImageryError(false); }, [activeLayer]);
 
   if (!region) return null;
 
@@ -80,6 +91,22 @@ export default function RegionResearchDashboard({ region, onBack, onProceedToStr
     };
   }, [region, timeRange]);
 
+  useEffect(() => {
+    if (!region) return;
+    const controller = new AbortController();
+    setNdviData(null);
+    setNdviStatus('loading');
+    const { startStr, endStr } = getDatesForRange(timeRange);
+    const base = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+    const timer = setTimeout(() => controller.abort(), 90000);
+    fetchNdvi(`${base}/api/ndvi?lat=${region.lat}&lon=${region.lng}&start=${startStr}&end=${endStr}`, controller.signal)
+      .then(data => { if (!controller.signal.aborted) { setNdviData(data); setNdviStatus('ready'); } })
+      .catch(() => { if (!disposed) setNdviStatus('error'); })
+      .finally(() => clearTimeout(timer));
+    let disposed = false;
+    return () => { disposed = true; clearTimeout(timer); controller.abort(); };
+  }, [region, timeRange]);
+
   // Extract latest valid measurement independently for each metric (finite number check)
   const records = obsData?.records || [];
   const getLatestValid = (extractor) => {
@@ -92,6 +119,7 @@ export default function RegionResearchDashboard({ region, onBack, onProceedToStr
     return { value: null, date: null };
   };
 
+  const soilContext = describeSoilContext(records);
   const latestSoil = getLatestValid(r => r.soilMoistureTop?.value);
   const latestPrec = getLatestValid(r => r.precipitation?.value);
   const latestTemp = getLatestValid(r => r.temperature?.value);
@@ -136,23 +164,9 @@ export default function RegionResearchDashboard({ region, onBack, onProceedToStr
     return null;
   };
 
-  // Verified NASA GIBS Imagery details with base map overlay
-  const gibsDate = '2024-05-01'; // Known stable composite date for GIBS global testing
-  const getTileUrl = () => {
-    switch (activeLayer) {
-      case 'satellite':
-        return 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-      case 'soil':
-        // NASA GIBS SMAP L4 Surface Soil Moisture with explicit date and Level9 tile matrix
-        return `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/SMAP_L4_Soil_Moisture_Surface/default/${gibsDate}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.png`;
-      case 'rainfall':
-        // NASA GIBS IMERG Precipitation Rate with explicit date and Level6 tile matrix
-        return `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/IMERG_Precipitation_Rate/default/${gibsDate}/GoogleMapsCompatible_Level6/{z}/{y}/{x}.png`;
-      case 'base':
-      default:
-        return 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-    }
-  };
+  const satelliteUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+  const scientificLayer = ['soil', 'ndvi', 'rainfall'].includes(activeLayer);
+  const layerTitle = activeLayer === 'soil' ? 'SMAP modeled surface soil moisture' : activeLayer === 'ndvi' ? 'MODIS vegetation greenness' : 'IMERG precipitation rate';
 
   return (
     <div className="research-dashboard-overlay">
@@ -161,8 +175,8 @@ export default function RegionResearchDashboard({ region, onBack, onProceedToStr
           <button className="rd-back-btn" onClick={onBack}>
             <ArrowLeft size={18} /> Return to Globe
           </button>
-          <h1>
-            Regional Research <span className="nasa-badge" style={{ background: '#3b82f6', color: '#fff', fontSize: '11px', padding: '2px 8px', borderRadius: '4px', fontWeight: 600, marginLeft: '8px' }}>NASA POWER Live</span>
+          <h1 className="bhoomi-page-title">
+            Regional Research <span className="nasa-badge" style={{ background: '#3b82f6', color: '#fff', fontSize: '11px', padding: '2px 8px', borderRadius: '4px', fontWeight: 600, marginLeft: '8px' }}>Latest available data</span>
           </h1>
         </div>
         <div className="rd-nav-actions">
@@ -207,16 +221,21 @@ export default function RegionResearchDashboard({ region, onBack, onProceedToStr
                 {latestSoil.value !== null ? `${(latestSoil.value * 100).toFixed(1)}% Saturation` : 'Unavailable'}
               </div>
               <div className="ind-sub-desc">
-                Surface soil wetness (GWETTOP), top 5 cm ({latestSoil.date || 'No valid date'}). Coverage: {soilCompleteness}%. This is relative wetness, not the amount of water in the soil.
+                Surface soil wetness (GWETTOP), top 5 cm ({latestSoil.date || 'No valid date'}). Coverage: {soilCompleteness}%. Model-based relative wetness, not volumetric water content or a direct SMAP measurement.
               </div>
+              <ConditionScale kind="soil" value={latestSoil.value === null ? null : latestSoil.value * 100} />
             </div>
 
             <div className="indicator-glass-card">
-              <span className="ind-title">Plant Health (NDVI)</span>
-              <div className="ind-main-val" style={{ fontSize: '15px', color: 'var(--text-secondary)' }}>
-                Not Connected
+              <span className="ind-title">Vegetation Greenness (NDVI)</span>
+              <div className="ind-main-val">
+                {ndviStatus === 'loading' ? 'Loading…' : ndviData?.latest?.value != null ? ndviData.latest.value.toFixed(4) : 'Unavailable'}
               </div>
-              <div className="ind-sub-desc">Requires MODIS/Landsat NDVI scientific dataset integration. No simulated proxy.</div>
+              <div className="ind-sub-desc">
+                {ndviData?.latest ? `MODIS Terra · ${ndviData.latest.date} (16-day composite start). ${ndviData.latest.quality} quality. Automatically retrieved point sample.` : ndviStatus === 'error' ? 'NDVI could not be loaded. Check the backend connection and try again.' : ndviData?.message || 'Checking available satellite samples.'}
+              </div>
+              {ndviData?.latest && <div className="ind-sub-desc">{ndviData.acceptedCount} of {ndviData.sampleCount} samples passed the quality filter for this period. NDVI measures greenness, not crop health or yield.</div>}
+              <ConditionScale kind="ndvi" value={ndviData?.latest?.value} />
             </div>
 
             <div className="indicator-glass-card">
@@ -227,6 +246,7 @@ export default function RegionResearchDashboard({ region, onBack, onProceedToStr
               <div className="ind-sub-desc">
                 Corrected daily rate ({latestPrec.date || 'No valid date'}). Coverage: {precCompleteness}%.
               </div>
+              <ConditionScale kind="rain" value={latestPrec.value} />
             </div>
 
             <div className="indicator-glass-card">
@@ -237,7 +257,13 @@ export default function RegionResearchDashboard({ region, onBack, onProceedToStr
               <div className="ind-sub-desc">
                 Air temperature at 2m ({latestTemp.date || 'No valid date'}). Coverage: {tempCompleteness}%.
               </div>
+              <ConditionScale kind="temp" value={latestTemp.value} />
             </div>
+          </div>
+          <div className="chart-glass-card" style={{ marginTop: 16, padding: '16px 20px' }}>
+            <strong>Soil condition: {loadingObs ? 'Loading…' : soilContext.label}</strong>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 13, margin: '8px 0' }}>{soilContext.detail}</p>
+            <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Crop risk is not assessed yet. It also needs crop type, growth stage, soil properties, and a validated model.</span>
           </div>
         </div>
 
@@ -254,26 +280,12 @@ export default function RegionResearchDashboard({ region, onBack, onProceedToStr
             </div>
           </div>
 
+          {activeLayer === 'rainfall' && <RainfallDate layer={imagery.layer} value={rainfallDate} onChange={setRainfallDate} />}
+          {scientificLayer && <div role="status" style={{ padding: '12px 0', color: 'var(--text-secondary)', fontSize: 13 }}>
+            {imageryError || imagery.status === 'error' ? 'Some NASA imagery could not load. The base map underneath is not the data layer.' : imagery.layer ? `${layerTitle} · image date ${imagery.layer.date}. ${activeLayer === 'ndvi' ? '16-day composite; colors show greenness, not crop health.' : activeLayer === 'rainfall' ? 'Colors show precipitation rate in mm/hour, not the daily rainfall value above. Clear areas may have no rain.' : 'Colors show water content, not crop risk; separate from the POWER wetness card.'}` : 'Loading available NASA imagery…'}
+            {imagery.layer?.legend && <img src={imagery.layer.legend} alt={`${layerTitle} NASA color scale and units`} style={{ display: 'block', maxWidth: '100%', maxHeight: 100, background: '#fff', marginTop: 8 }} />}
+          </div>}
           <div className="chart-glass-card map-container-wrapper" style={{ padding: 0, overflow: 'hidden', height: 460, position: 'relative', zIndex: 1 }}>
-            {activeLayer === 'ndvi' && (
-              <div style={{
-                position: 'absolute',
-                top: 16,
-                right: 16,
-                background: 'var(--surface)',
-                border: '1px solid var(--border-color)',
-                color: 'var(--text-primary)',
-                padding: '10px 16px',
-                borderRadius: '8px',
-                fontSize: '14px',
-                zIndex: 10,
-                fontWeight: 500,
-                boxShadow: 'var(--shadow)'
-              }}>
-                Layer disabled: NDVI raster stream not connected. Showing base geography.
-              </div>
-            )}
-
             <MapContainer
               center={[region.lat, region.lng]}
               zoom={8}
@@ -286,20 +298,15 @@ export default function RegionResearchDashboard({ region, onBack, onProceedToStr
                 attribution="&copy; OpenStreetMap contributors"
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
-              {/* Overlay scientific or satellite layer on top when selected */}
-              {activeLayer !== 'base' && activeLayer !== 'ndvi' && (
-                <TileLayer
-                  key={activeLayer}
-                  attribution={
-                    activeLayer === 'soil' ? 'NASA GIBS SMAP L4 Surface Soil Moisture' :
-                    activeLayer === 'rainfall' ? 'NASA GIBS IMERG Precipitation' :
-                    'Esri World Imagery'
-                  }
-                  url={getTileUrl()}
-                  opacity={activeLayer === 'satellite' ? 1.0 : 0.75}
-                  maxZoom={activeLayer === 'rainfall' ? 6 : activeLayer === 'soil' ? 9 : 18}
-                />
-              )}
+              {activeLayer === 'satellite' && <TileLayer key="satellite" attribution="Esri World Imagery" url={satelliteUrl} />}
+              {activeLayer === 'rainfall' && imagery.layer && <RainfallTiles key={imagery.layer.url} layer={imagery.layer} onError={() => setImageryError(true)} />}
+              {scientificLayer && activeLayer !== 'rainfall' && imagery.layer && <TileLayer
+                key={imagery.layer.id + imagery.layer.date}
+                attribution={`NASA GIBS · ${layerTitle}`}
+                url={imagery.layer.url} opacity={0.85}
+                maxZoom={20} maxNativeZoom={imagery.layer.maxNativeZoom}
+                eventHandlers={{ tileerror: () => setImageryError(true) }}
+              />}
               <Marker position={[region.lat, region.lng]}>
                 <Popup>
                   <div style={{ color: 'var(--text-primary)', fontFamily: 'Roboto, sans-serif', fontSize: '14px', padding: '4px' }}>
@@ -378,19 +385,20 @@ export default function RegionResearchDashboard({ region, onBack, onProceedToStr
         {/* Section E: Research Insights */}
         <div className="insights-glass-card">
           <h3>Data Sources & Missing Measurements</h3>
-          <div className="insights-list">
+          <div className="insights-list data-source-summary">
             <div className="insight-item">
               <h4>Data Source</h4>
-              <p>Retrieved from NASA POWER weather data. Data available: {obsData?.completenessPercentage}%.</p>
+              <p>NASA POWER provides weather and modeled soil wetness. Complete weather records: {obsData?.completenessPercentage != null ? `${obsData.completenessPercentage}%` : 'Unavailable'}. This percentage does not include NDVI.</p>
             </div>
             <div className="insight-item">
               <h4>How Missing Data Is Shown</h4>
               <p>Missing measurements appear as gaps. The app does not invent values to fill them.</p>
             </div>
           </div>
-          <div className="scientific-disclaimer">
-            Source URL: <a href={obsData?.sourceUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--primary-blue)', wordBreak: 'break-all' }}>{obsData?.sourceUrl || 'NASA POWER API Endpoint'}</a>
-          </div>
+          {obsData?.sourceUrl && <div className="data-source-footer">
+            <span>Check the original measurements</span>
+            <a href={obsData.sourceUrl} target="_blank" rel="noreferrer">View NASA POWER data ↗</a>
+          </div>}
         </div>
       </div>
     </div>

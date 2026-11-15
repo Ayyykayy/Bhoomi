@@ -83,7 +83,7 @@ export default function FarmActionPlan({ experiment, onBack, onNavigateToSimulat
             <ArrowLeft size={18} /> Return to Results
           </button>
           <div>
-            <h1>Farm Action Plan & Recommendations</h1>
+            <h1 className="bhoomi-page-title">Farm Action Plan & Recommendations</h1>
             <span className="ap-subtitle">
               Experiment: <strong>{currentExp.name}</strong> · Saved on this browser
             </span>

@@ -1,0 +1,93 @@
+{
+  "location": {
+    "name": "Lucknow",
+    "latitude": 26.8381,
+    "longitude": 80.9346
+  },
+  "product": "MOD13Q1.061",
+  "source": "NASA MODIS Terra via AppEEARS point export",
+  "sourceUrl": "https://doi.org/10.5067/MODIS/MOD13Q1.061",
+  "taskId": "ad5ed6e2-a940-4a50-8702-16adf2305aee",
+  "archiveSha256": "1a01c56039b4682baf0a982c27de3eff44c25006025c0f2ee86fe67645731af5",
+  "requestedPeriod": {
+    "start": "2026-08-01",
+    "end": "2026-10-31"
+  },
+  "compositeDays": 16,
+  "resolution": "250 m nominal",
+  "valuesAlreadyScaled": true,
+  "records": [
+    {
+      "date": "2026-07-28",
+      "value": null,
+      "rawValue": 0.1021,
+      "quality": "rejected",
+      "reasons": [
+        "cloud_snow_or_unreliable",
+        "low_usefulness",
+        "mixed_cloud"
+      ],
+      "qa": 3098,
+      "pixelReliability": 3
+    },
+    {
+      "date": "2026-08-13",
+      "value": null,
+      "rawValue": 0.1859,
+      "quality": "rejected",
+      "reasons": [
+        "cloud_snow_or_unreliable",
+        "low_usefulness"
+      ],
+      "qa": 2066,
+      "pixelReliability": 3
+    },
+    {
+      "date": "2026-08-29",
+      "value": null,
+      "rawValue": 0.2853,
+      "quality": "rejected",
+      "reasons": [
+        "low_usefulness",
+        "adjacent_cloud",
+        "shadow"
+      ],
+      "qa": 35221,
+      "pixelReliability": 1
+    },
+    {
+      "date": "2026-09-14",
+      "value": null,
+      "rawValue": 0.2693,
+      "quality": "rejected",
+      "reasons": [
+        "low_usefulness",
+        "high_aerosol"
+      ],
+      "qa": 2257,
+      "pixelReliability": 1
+    },
+    {
+      "date": "2026-09-30",
+      "value": 0.2538,
+      "rawValue": 0.2538,
+      "quality": "marginal",
+      "reasons": [],
+      "qa": 2185,
+      "pixelReliability": 1
+    },
+    {
+      "date": "2026-10-16",
+      "value": null,
+      "rawValue": 0.2176,
+      "quality": "rejected",
+      "reasons": [
+        "low_usefulness",
+        "shadow"
+      ],
+      "qa": 34961,
+      "pixelReliability": 1
+    }
+  ],
+  "qualityPolicy": "Accept reliability 0 or 1, MODLAND 0 or 1, usefulness 0\u20132; exclude high aerosol, adjacent/mixed cloud, snow, shadow and non-land. Retain marginal label. No gap filling."
+}

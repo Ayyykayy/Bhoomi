@@ -339,3 +339,19 @@
   margin-top: 24px;
   line-height: 1.5;
 }
+
+/* Reference scales are descriptive, not crop-risk thresholds. */
+.condition-guide { margin-top: auto; padding-top: 22px; }
+.condition-guide-heading { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px; font-size: 12px; color: var(--text-primary); margin-bottom: 12px; }
+.condition-guide-heading span { color: var(--text-secondary); font-size: 11px; }
+.condition-guide-track { position: relative; height: 8px; border-radius: 6px; margin: 0 5px; }
+.condition-guide-marker { position: absolute; top: -4px; height: 16px; width: 4px; background: #fff; border: 1px solid #17202b; border-radius: 2px; transform: translateX(-50%); box-shadow: 0 0 0 1px #fff; }
+.condition-guide-ticks { display: flex; justify-content: space-between; gap: 6px; margin-top: 8px; font-size: 11px; color: var(--text-secondary); }
+.condition-guide p { margin: 12px 0 0; font-size: 12px; line-height: 1.55; color: var(--text-secondary); }
+.condition-guide a { display: inline-block; margin-top: 8px; color: #85b4ff; font-size: 11px; }
+
+.data-source-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.data-source-summary .insight-item { min-width: 0; }
+.data-source-footer { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border-color); color: var(--text-secondary); font-size: 14px; }
+.data-source-footer a { color: #85b4ff; text-underline-offset: 3px; }
+@media (max-width: 700px) { .data-source-summary { grid-template-columns: 1fr; } }

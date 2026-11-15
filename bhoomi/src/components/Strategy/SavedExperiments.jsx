@@ -60,7 +60,7 @@ export default function SavedExperiments({ onBack, onOpenExperiment, onNewExperi
             <ArrowLeft size={18} /> Return to Globe
           </button>
           <div>
-            <h1>Saved Experiments</h1>
+            <h1 className="bhoomi-page-title">Saved Experiments</h1>
             <span className="se-subtitle">
               Saved on this browser · {experiments.length} total experiments
             </span>

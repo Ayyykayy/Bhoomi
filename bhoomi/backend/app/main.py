@@ -106,3 +106,12 @@ def get_climate_data(
         "success": True,
         **climate_result
     }
+
+
+@app.get("/api/ndvi")
+def get_ndvi_data(
+    lat: float = Query(...), lon: float = Query(...),
+    start: str | None = Query(None), end: str | None = Query(None)
+):
+    from app.ndvi_service import get_ndvi
+    return get_ndvi(lat, lon, start, end)

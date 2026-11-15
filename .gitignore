@@ -14,3 +14,5 @@ __pycache__/
 .env.*
 !.env.example
 *.log
+# Local duplicate of the teammate ZIP; integrated app lives in bhoomi/backend
+/Backend/Bhoomi-backend-development/

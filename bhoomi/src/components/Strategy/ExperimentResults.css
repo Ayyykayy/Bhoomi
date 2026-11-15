@@ -237,3 +237,10 @@
 .er-prop-list strong {
   color: var(--text-primary);
 }
+
+.er-prop-list li { gap: 16px; align-items: flex-start; }
+.er-prop-list li > span { flex: 0 0 120px; }
+.er-prop-list li > strong { min-width: 0; overflow-wrap: anywhere; text-align: right; line-height: 1.5; }
+.er-reading-detail { display: block; margin-top: 4px; color: var(--text-secondary); font-size: 11px; font-weight: 400; }
+.er-observation-note { color: var(--text-secondary); font-size: 12px; line-height: 1.5; margin: 14px 0 0; }
+@media (max-width: 550px) { .er-prop-list li { flex-direction: column; gap: 5px; } .er-prop-list li > span { flex-basis: auto; } .er-prop-list li > strong { text-align: left; } }

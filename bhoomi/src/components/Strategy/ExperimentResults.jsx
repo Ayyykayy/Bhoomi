@@ -70,6 +70,7 @@ export default function ExperimentResults({ experiment, onBack, onNavigateToActi
             <ArrowLeft size={18} /> Return to Scenario Lab
           </button>
           <div>
+            <span className="bhoomi-page-label">Experiment Results</span>
             {isEditingName ? (
               <input
                 type="text"
@@ -80,7 +81,7 @@ export default function ExperimentResults({ experiment, onBack, onNavigateToActi
                 className="er-name-input"
               />
             ) : (
-              <h1 onClick={() => setIsEditingName(true)} title="Click to edit name" style={{ cursor: 'pointer' }}>
+              <h1 className="bhoomi-page-title" onClick={() => setIsEditingName(true)} title="Click to edit name" style={{ cursor: 'pointer' }}>
                 {expName} <Pencil size={17} aria-hidden="true" />
               </h1>
             )}
@@ -179,11 +180,17 @@ export default function ExperimentResults({ experiment, onBack, onNavigateToActi
               <h3>Data Sources & Assumptions</h3>
               <ul className="er-prop-list">
                 <li><span>Data Source:</span> <strong>{observations.source}</strong></li>
-                <li><span>Date Measured:</span> <strong>{observations.date || 'Not available'}</strong></li>
-                <li><span>Data Available:</span> <strong>{observations.completeness ?? 'Not assessed'}</strong></li>
+                <li><span>Observation Dates:</span> <strong>{observations.date || 'Not available'}</strong></li>
+                <li><span>Readings Saved:</span> <strong>{observations.completeness ?? 'Not assessed'}</strong></li>
+                {observations.measurements?.map(reading => <li key={reading.key}>
+                  <span>{reading.label}:</span>
+                  <strong>{reading.key === 'soilMoistureTop' ? `${(reading.value * 100).toFixed(1)}% relative wetness` : `${reading.value} ${reading.unit || ''}`}<small className="er-reading-detail">{reading.date || 'Date unavailable'} · {reading.source}{reading.quality ? ` · ${reading.quality} quality` : ''}</small></strong>
+                </li>)}
                 <li><span>Calculation Assumptions:</span> <strong>{metrics.assumptions?.[0] || 'Calculation assumptions not provided'}</strong></li>
                 <li><span>Calculation Method:</span> <strong>{currentExp.metadata?.model || 'Example calculation'}</strong></li>
               </ul>
+              {observations.note && <p className="er-observation-note">{observations.note}</p>}
+              {!observations.measurements && <p className="er-observation-note">This older experiment has no saved source snapshot. Return to the simulator and save again after the readings load.</p>}
             </div>
           </div>
         </div>
