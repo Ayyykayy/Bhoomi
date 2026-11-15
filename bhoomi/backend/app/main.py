@@ -1,7 +1,7 @@
 import logging
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from app.config import settings
 from app.nasa_service import fetch_nasa_power_climate, fetch_nasa_power_range
 from app.geocoding_service import fetch_nominatim_search, fetch_nominatim_reverse
@@ -40,6 +40,14 @@ async def global_exception_handler(request: Request, exc: Exception):
         status_code=500,
         content={"success": False, "error": "Internal server error", "status_code": 500}
     )
+
+@app.get("/", include_in_schema=False)
+def website_entry():
+    # The API and static site have separate hosts. Send browser visitors to the configured website.
+    frontend = next((origin for origin in settings.ALLOWED_ORIGINS if origin.startswith("https://")), None)
+    if frontend:
+        return RedirectResponse(frontend + "/", status_code=307)
+    return {"service": settings.PROJECT_NAME, "status": "healthy", "docs": "/docs", "health": "/api/health"}
 
 @app.get("/api/health")
 def health_check():
