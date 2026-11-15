@@ -38,4 +38,15 @@ Use a Node.js version compatible with the installed Vite version. Routes use URL
 
 Browser experiments do not transfer automatically between localhost, deployment domains or devices. External outages and missing-quality data remain possible. Scientific limitations in the README still apply after deployment.
 
-No production URL has been configured in this document; add the actual frontend and backend URLs after deployment is verified.
+## Current deployment
+
+- Frontend: https://bhoomi-1-ht53.onrender.com/
+- Backend: https://bhoomi-v1bt.onrender.com
+- Health: https://bhoomi-v1bt.onrender.com/api/health
+- API documentation: https://bhoomi-v1bt.onrender.com/docs
+- Branch: `main` for both services.
+- Hosting: Render Static Site and Python Web Service.
+
+Backend `ALLOWED_ORIGINS`: `https://bhoomi-1-ht53.onrender.com`.
+Frontend `VITE_BACKEND_URL`: `https://bhoomi-v1bt.onrender.com`.
+The MapTiler key must permit `bhoomi-1-ht53.onrender.com`. Keep its value in Render configuration rather than Git.

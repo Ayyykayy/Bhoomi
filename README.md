@@ -1,10 +1,27 @@
 # BHOOMI
 
+**[Open the live BHOOMI app](https://bhoomi-1-ht53.onrender.com/)**
+
+[![Live demo](https://img.shields.io/badge/Live_Demo-Open_BHOOMI-4285f4)](https://bhoomi-1-ht53.onrender.com/)
+
 Explore agricultural conditions with NASA data, draw a field boundary, compare farming scenarios, and save experiments and action plans.
 
 **Workflow:** Globe → Regional Research → Scenario Lab → Experiment Results → Farm Action Plan.
 
 BHOOMI connects environmental observations to an interactive planning workspace. Farming outcome calculations are currently illustrative, not validated agricultural predictions.
+
+## Try the deployed project
+
+1. Open [BHOOMI](https://bhoomi-1-ht53.onrender.com/).
+2. Search for a location or select a point on the globe.
+3. Review regional observations and map layers, then open the farming simulator.
+4. Draw a polygon, adjust the experiment settings and save to view results and the action plan.
+
+The free backend can sleep after inactivity, so the first API request may take about a minute. Experiments are saved only in the current browser. Crop outcome calculations remain illustrative.
+
+- Website: https://bhoomi-1-ht53.onrender.com/
+- Backend health: https://bhoomi-v1bt.onrender.com/api/health
+- API documentation: https://bhoomi-v1bt.onrender.com/docs
 
 ## Documentation
 
