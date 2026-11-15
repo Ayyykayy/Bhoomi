@@ -3,12 +3,13 @@
   top: 84px;
   right: 28px;
   width: 400px;
+  max-width: calc(100vw - 56px);
   max-height: calc(100vh - 110px);
   background: var(--surface);
   border: 1px solid var(--border-color);
   border-radius: 16px;
-  box-shadow: var(--shadow);
-  z-index: 100;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  z-index: 1500;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -17,6 +18,7 @@
   font-family: var(--font-primary);
   animation: slideIn 0.25s ease-out;
   transition: background 0.3s ease, border-color 0.3s ease;
+  box-sizing: border-box;
 }
 
 @keyframes slideIn {
@@ -108,13 +110,16 @@
   font-weight: 600;
   color: var(--text-primary);
   margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .indicators-compact-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
-  margin-bottom: 28px;
+  margin-bottom: 20px;
 }
 
 .ind-box {
@@ -128,7 +133,7 @@
 }
 
 .ind-label {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--text-secondary);
 }
@@ -137,6 +142,13 @@
   font-size: 16px;
   font-weight: 600;
   color: var(--text-primary);
+}
+
+.panel-attribution-footer {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+  line-height: 1.4;
 }
 
 .panel-action-container {
@@ -163,4 +175,45 @@
 
 .google-earth-primary-btn:hover {
   background: var(--active-blue);
+}
+
+.panel-status-box {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+}
+
+.panel-status-box.error {
+  border-color: var(--risk-high-border);
+  background: var(--risk-high-bg);
+  color: var(--risk-high-text);
+}
+
+.panel-status-box .spinner {
+  animation: spin 1s linear infinite;
+  color: var(--primary-blue);
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@media (max-width: 600px) {
+  .google-earth-panel {
+    top: 70px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+    max-height: calc(100vh - 90px);
+    padding: 20px;
+  }
 }

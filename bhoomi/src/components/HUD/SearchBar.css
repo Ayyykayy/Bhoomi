@@ -79,11 +79,19 @@
   pointer-events: none;
 }
 
+.search-spinner {
+  position: absolute;
+  right: 18px;
+  color: var(--primary-blue);
+  animation: spin 1s linear infinite;
+  pointer-events: none;
+}
+
 .search-input-wrapper input {
   width: 100%;
   background: transparent;
   border: none;
-  padding: 12px 16px 12px 46px;
+  padding: 12px 36px 12px 46px;
   color: var(--text-primary);
   font-size: 16px;
   font-family: var(--font-primary);
@@ -126,6 +134,13 @@
   background: var(--surface-elevated);
 }
 
+.search-no-results {
+  padding: 16px 18px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
 .item-info {
   display: flex;
   flex-direction: column;
@@ -153,4 +168,9 @@
   top: 20px;
   right: 28px;
   z-index: 90;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }

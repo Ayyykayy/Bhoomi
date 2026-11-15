@@ -1,57 +1,27 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
-import Globe from 'react-globe.gl';
-import * as THREE from 'three';
+import { useState, useEffect, useRef } from 'react';
+import * as maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
+import { reverseGeocodeLocation } from '../../services/api';
+import { Square, Trash2, AlertCircle } from 'lucide-react';
 import './EarthGlobe.css';
 
-export default function EarthGlobe({ regions, selectedRegion, onSelectRegion }) {
-  const globeEl = useRef();
-  const coordsRef = useRef();
-  const [dimensions, setDimensions] = useState({
-    width: window.innerWidth,
-    height: window.innerHeight
-  });
+export default function EarthGlobe({ selectedLocation, onSelectLocation, polygonArea, onPolygonChange }) {
+  const mapContainerRef = useRef(null);
+  const mapRef = useRef(null);
+  const coordsRef = useRef(null);
+  const [mapStyle, setMapStyle] = useState('satellite'); // 'satellite' | 'streets'
+  const [keyError, setKeyError] = useState(null);
+  const [drawingMode, setDrawingMode] = useState(false);
+  const [polygonCoords, setPolygonCoords] = useState(polygonArea || []);
+
+  const maptilerKey = import.meta.env.VITE_MAPTILER_KEY;
 
   useEffect(() => {
-    const handleResize = () => {
-      setDimensions({
-        width: window.innerWidth,
-        height: window.innerHeight
-      });
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  useEffect(() => {
-    if (globeEl.current) {
-      const controls = globeEl.current.controls();
-      controls.enableZoom = true;
-      controls.minDistance = 120;
-      controls.maxDistance = 600;
-      controls.autoRotate = !selectedRegion;
-      controls.autoRotateSpeed = 0.5;
-
-      globeEl.current.pointOfView({ altitude: 2.5 }, 1000);
+    if (!maptilerKey || maptilerKey.trim() === '' || maptilerKey.includes('YOUR_KEY')) {
+      setKeyError('Missing or invalid VITE_MAPTILER_KEY in .env.local. Please provide a valid MapTiler API key.');
     }
-  }, []);
+  }, [maptilerKey]);
 
-  useEffect(() => {
-    if (globeEl.current && selectedRegion) {
-      globeEl.current.controls().autoRotate = false;
-      globeEl.current.pointOfView(
-        {
-          lat: selectedRegion.lat,
-          lng: selectedRegion.lng,
-          altitude: 1.5
-        },
-        1200
-      );
-    } else if (globeEl.current) {
-      globeEl.current.controls().autoRotate = true;
-    }
-  }, [selectedRegion]);
-
-  // Helper to convert decimal degrees to DMS format
   const formatDMS = (lat, lng) => {
     const latAbs = Math.abs(lat);
     const latDeg = Math.floor(latAbs);
@@ -68,89 +38,256 @@ export default function EarthGlobe({ regions, selectedRegion, onSelectRegion }) 
     return `${latDeg}°${String(latMin).padStart(2, '0')}′${String(latSec).padStart(2, '0')}″${latDir}  ${lngDeg}°${String(lngMin).padStart(2, '0')}′${String(lngSec).padStart(2, '0')}″${lngDir}`;
   };
 
-  // Mouse move handler for live coordinate readout using raycasting
-  const handleMouseMove = useCallback((e) => {
-    if (!globeEl.current || !coordsRef.current) return;
-    const globe = globeEl.current;
+  useEffect(() => {
+    if (!mapContainerRef.current || keyError) return;
 
-    // Get mouse NDC (-1 to +1)
-    const rect = globe.renderer().domElement.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    const styleUrl = mapStyle === 'satellite'
+      ? `https://api.maptiler.com/maps/hybrid/style.json?key=${maptilerKey}`
+      : `https://api.maptiler.com/maps/streets-v2/style.json?key=${maptilerKey}`;
 
-    const raycaster = new THREE.Raycaster();
-    const camera = globe.camera();
-    raycaster.setFromCamera(new THREE.Vector2(x, y), camera);
+    const map = new maplibregl.Map({
+      container: mapContainerRef.current,
+      style: styleUrl,
+      center: selectedLocation ? [selectedLocation.lng, selectedLocation.lat] : [0, 20],
+      zoom: selectedLocation ? 10 : 1.2,
+      pitch: 0,
+      bearing: 0
+    });
 
-    const scene = globe.scene();
-    const intersects = raycaster.intersectObjects(scene.children, true);
+    mapRef.current = map;
 
-    // Find intersection with the globe sphere (radius ~ 100 in Three-Globe)
-    const globeIntersection = intersects.find(hit => hit.object && hit.object.geometry && hit.object.type === 'Mesh');
+    // Apply globe projection explicitly upon style loading and initialization
+    const applyGlobeProjection = () => {
+      try {
+        map.setProjection({ type: 'globe' });
+      } catch (err) {
+        console.log('Globe projection configuration:', err);
+      }
+    };
 
-    if (globeIntersection && globeIntersection.point) {
-      const p = globeIntersection.point;
-      // Convert Cartesian (x, y, z) to Lat, Lng on sphere
-      const r = Math.sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
-      if (r > 0) {
-        const lat = Math.asin(p.y / r) * (180 / Math.PI);
-        const lng = Math.atan2(p.z, p.x) * (180 / Math.PI);
+    map.on('style.load', applyGlobeProjection);
+    applyGlobeProjection();
+
+    map.on('error', (e) => {
+      console.error('MapLibre error event:', e);
+      if (e && e.error && (e.error.status === 401 || e.error.status === 403)) {
+        setKeyError('MapTiler API key rejected or unauthorized. Please verify your VITE_MAPTILER_KEY.');
+      }
+    });
+
+    // Hover coordinate readout restricted to valid globe surface features
+    map.on('mousemove', (e) => {
+      if (!coordsRef.current) return;
+      const { lng, lat } = e.lngLat;
+      const features = map.queryRenderedFeatures(e.point);
+      const isOverEarth = features.length > 0 && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+
+      if (isOverEarth) {
         coordsRef.current.textContent = formatDMS(lat, lng);
         coordsRef.current.style.opacity = '1';
+      } else {
+        coordsRef.current.style.opacity = '0';
+      }
+    });
+
+    map.on('mouseout', () => {
+      if (coordsRef.current) {
+        coordsRef.current.style.opacity = '0';
+      }
+    });
+
+    map.on('click', async (e) => {
+      const { lng, lat } = e.lngLat;
+
+      if (drawingMode) {
+        const newCoords = [...polygonCoords, [lng, lat]];
+        setPolygonCoords(newCoords);
+        if (onPolygonChange) {
+          onPolygonChange({
+            type: 'Feature',
+            geometry: {
+              type: 'Polygon',
+              coordinates: [newCoords.length >= 3 ? [...newCoords, newCoords[0]] : newCoords]
+            },
+            properties: { areaType: 'user-selected experiment area' }
+          });
+        }
         return;
       }
-    }
-    coordsRef.current.style.opacity = '0';
-  }, []);
 
-  const handleMouseLeave = useCallback(() => {
-    if (coordsRef.current) {
-      coordsRef.current.style.opacity = '0';
-    }
-  }, []);
+      const latStr = lat.toFixed(4);
+      const lngStr = lng.toFixed(4);
+      const fallbackLocation = {
+        id: `clicked-${latStr}-${lngStr}`,
+        name: `Location (${latStr}, ${lngStr})`,
+        country: lat >= 0 ? `${lat.toFixed(2)}°N` : `${Math.abs(lat).toFixed(2)}°S`,
+        lat: lat,
+        lng: lng,
+        isCustom: true,
+        description: `Surface click at coordinates (${latStr}, ${lngStr}). Gridded NASA POWER observations retrieved for this point.`
+      };
+      onSelectLocation(fallbackLocation);
 
-  const handleGlobeClick = useCallback(() => {}, []);
+      try {
+        const resolved = await reverseGeocodeLocation(lat, lng);
+        if (resolved) {
+          onSelectLocation(prev => {
+            if (prev && Math.abs(prev.lat - lat) < 0.0001 && Math.abs(prev.lng - lng) < 0.0001) {
+              return {
+                ...prev,
+                name: resolved.name,
+                country: resolved.country,
+                fullName: resolved.fullName,
+                description: `${resolved.fullName || resolved.name}. Gridded NASA POWER observations retrieved for exact coordinates (${lat.toFixed(4)}, ${lng.toFixed(4)}).`
+              };
+            }
+            return prev;
+          });
+        }
+      } catch (err) {
+        console.log('Reverse geocode lookup failed; keeping coordinates.', err);
+      }
+    });
+
+    return () => {
+      map.remove();
+      mapRef.current = null;
+    };
+  }, [mapStyle, keyError]);
+
+  useEffect(() => {
+    if (mapRef.current && selectedLocation) {
+      mapRef.current.flyTo({
+        center: [selectedLocation.lng, selectedLocation.lat],
+        zoom: 10,
+        duration: 1200
+      });
+    }
+  }, [selectedLocation]);
+
+  const handleClearPolygon = () => {
+    setPolygonCoords([]);
+    if (onPolygonChange) onPolygonChange(null);
+  };
 
   return (
-    <div
-      className="earth-globe-container"
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-    >
-      <Globe
-        ref={globeEl}
-        width={dimensions.width}
-        height={dimensions.height}
-        globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
-        bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
-        backgroundImageUrl="//unpkg.com/three-globe/example/img/night-sky.png"
-        atmosphereColor="#3b82f6"
-        atmosphereAltitude={0.25}
-        htmlElementsData={regions}
-        htmlLat={d => d.lat}
-        htmlLng={d => d.lng}
-        htmlAltitude={0.02}
-        htmlElement={d => {
-          const isSelected = selectedRegion && selectedRegion.id === d.id;
-          const el = document.createElement('div');
-          el.className = `region-marker-wrapper ${isSelected ? 'selected' : ''}`;
-          el.innerHTML = `
-            <div class="marker-dot" style="background-color: ${d.color};">
-              <span class="marker-tooltip">${d.name} (${d.riskCategory})</span>
-            </div>
-          `;
-          el.onclick = (e) => {
-            e.stopPropagation();
-            onSelectRegion(d);
-          };
-          return el;
-        }}
-        onGlobeClick={handleGlobeClick}
-      />
+    <div className="earth-globe-container">
+      {keyError ? (
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'var(--bg-main)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '32px',
+          textAlign: 'center',
+          zIndex: 200
+        }}>
+          <AlertCircle size={48} style={{ color: 'var(--danger)', marginBottom: '16px' }} />
+          <h2>MapTiler Configuration Error</h2>
+          <p style={{ maxWidth: '500px', marginTop: '12px', color: 'var(--text-secondary)' }}>{keyError}</p>
+        </div>
+      ) : (
+        <div ref={mapContainerRef} style={{ width: '100%', height: '100%', position: 'absolute', inset: 0, background: '#06090f' }} />
+      )}
 
-      {/* Google Earth style live coordinate readout */}
+      {/* Compact Map Style & Experiment Area Toolbar below search */}
+      <div className="map-toolbar" style={{
+        position: 'absolute',
+        top: '76px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        display: 'flex',
+        gap: '8px',
+        zIndex: 50,
+        background: 'var(--surface)',
+        padding: '4px 10px',
+        borderRadius: '10px',
+        border: '1px solid var(--border-color)',
+        boxShadow: 'var(--shadow)',
+        alignItems: 'center'
+      }}>
+        <button
+          className={`time-tab ${mapStyle === 'satellite' ? 'active' : ''}`}
+          onClick={() => setMapStyle('satellite')}
+          style={{ padding: '4px 10px', borderRadius: '6px', border: 'none', background: mapStyle === 'satellite' ? 'var(--primary-blue)' : 'transparent', color: mapStyle === 'satellite' ? '#fff' : 'var(--text-primary)', cursor: 'pointer', fontWeight: 600, fontSize: '12px' }}
+        >
+          Satellite Hybrid
+        </button>
+        <button
+          className={`time-tab ${mapStyle === 'streets' ? 'active' : ''}`}
+          onClick={() => setMapStyle('streets')}
+          style={{ padding: '4px 10px', borderRadius: '6px', border: 'none', background: mapStyle === 'streets' ? 'var(--primary-blue)' : 'transparent', color: mapStyle === 'streets' ? '#fff' : 'var(--text-primary)', cursor: 'pointer', fontWeight: 600, fontSize: '12px' }}
+        >
+          Streets
+        </button>
+
+        <div style={{ width: '1px', height: '16px', background: 'var(--border-color)', margin: '0 2px' }} />
+
+        <button
+          onClick={() => setDrawingMode(!drawingMode)}
+          style={{
+            background: drawingMode ? 'var(--vegetation)' : 'var(--surface-elevated)',
+            color: drawingMode ? '#fff' : 'var(--text-primary)',
+            border: '1px solid var(--border-color)',
+            padding: '4px 10px',
+            borderRadius: '6px',
+            fontSize: '12px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}
+          title="Draw experiment area polygon on globe"
+        >
+          <Square size={12} /> {drawingMode ? 'Drawing Active' : 'Draw Experiment Area'}
+        </button>
+
+        {polygonCoords.length > 0 && (
+          <button
+            onClick={handleClearPolygon}
+            style={{
+              background: 'var(--risk-high-bg)',
+              color: 'var(--risk-high-text)',
+              border: '1px solid var(--risk-high-border)',
+              padding: '4px 8px',
+              borderRadius: '6px',
+              fontSize: '12px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '2px'
+            }}
+            title="Clear drawn experiment area"
+          >
+            <Trash2 size={12} /> Clear ({polygonCoords.length})
+          </button>
+        )}
+      </div>
+
+      {/* Required MapTiler Attribution Footer */}
+      <div className="map-attribution-badge" style={{
+        position: 'absolute',
+        bottom: '12px',
+        right: '16px',
+        background: 'rgba(0,0,0,0.6)',
+        backdropFilter: 'blur(4px)',
+        color: '#fff',
+        padding: '4px 10px',
+        borderRadius: '6px',
+        fontSize: '11px',
+        zIndex: 50,
+        pointerEvents: 'none'
+      }}>
+        © <a href="https://www.maptiler.com/copyright/" target="_blank" rel="noreferrer" style={{ color: '#93c5fd' }}>MapTiler</a> © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" style={{ color: '#93c5fd' }}>OpenStreetMap contributors</a>
+      </div>
+
+      {/* Google Earth style live coordinate readout with dark background and legible text */}
       <div ref={coordsRef} className="globe-cursor-coordinates">
-        Initializing coordinates...
+        Hover over globe for coordinates...
       </div>
     </div>
   );

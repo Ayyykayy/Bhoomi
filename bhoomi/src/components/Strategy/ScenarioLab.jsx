@@ -1,40 +1,99 @@
 import { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polygon as LeafletPolygon, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { ArrowLeft, Sliders, CloudRain, RefreshCw, Layers, Search, MapPin, CheckCircle2, Square, Pentagon, Hand } from 'lucide-react';
+import { ArrowLeft, Sliders, CloudRain, RefreshCw, Layers, Search, MapPin, Square, Pentagon, Hand, X, Loader2, CheckCircle2, ChevronRight, ChevronLeft, Info, HelpCircle } from 'lucide-react';
 import { calculateSimulation } from '../../services/simulationService';
 import { searchLocations, fetchBackendResearch } from '../../services/api';
 import './ScenarioLab.css';
 
-// Helper component to smoothly fly the Leaflet map to new coordinates
-function MapController({ center, zoom }) {
+// Helper component to smoothly fly the Leaflet map to new coordinates or bounding box
+function MapController({ center, zoom, bounds }) {
   const map = useMap();
   useEffect(() => {
-    if (center) {
-      map.flyTo(center, zoom || 11, { duration: 1.5 });
+    if (bounds && bounds.length === 4) {
+      const [south, north, west, east] = bounds;
+      map.fitBounds([[south, west], [north, east]], { padding: [50, 50], maxZoom: 14, duration: 1.5 });
+    } else if (center) {
+      map.flyTo(center, zoom || 12, { duration: 1.5 });
     }
-  }, [center, zoom, map]);
+  }, [center, zoom, bounds, map]);
+  return null;
+}
+
+// Interactive Drawing Handler Component for Leaflet Map
+function DrawingManager({ activeTool, onPolygonComplete, onRectangleComplete, onPointComplete }) {
+  const map = useMap();
+  const [vertices, setVertices] = useState([]);
+  const [rectStart, setRectStart] = useState(null);
+
+  useEffect(() => {
+    setVertices([]);
+    setRectStart(null);
+    if (activeTool === 'pan' || activeTool === 'point') {
+      map.dragging.enable();
+    } else {
+      map.dragging.disable();
+    }
+  }, [activeTool, map]);
+
+  useMapEvents({
+    click(e) {
+      if (activeTool === 'point') {
+        onPointComplete(e.latlng);
+      } else if (activeTool === 'polygon') {
+        setVertices(prev => [...prev, [e.latlng.lat, e.latlng.lng]]);
+      } else if (activeTool === 'rectangle') {
+        if (!rectStart) {
+          setRectStart([e.latlng.lat, e.latlng.lng]);
+        } else {
+          const bounds = [rectStart, [e.latlng.lat, e.latlng.lng]];
+          onRectangleComplete(bounds);
+          setRectStart(null);
+        }
+      }
+    },
+    dblclick(e) {
+      if (activeTool === 'polygon' && vertices.length >= 3) {
+        e.originalEvent.preventDefault();
+        onPolygonComplete(vertices);
+        setVertices([]);
+      }
+    }
+  });
+
   return null;
 }
 
 export default function ScenarioLab({ region, onBack }) {
-  // Map navigation & Geocoding Search state (Phase 1)
+  // Map navigation & Geocoding Search state
   const [mapCenter, setMapCenter] = useState([region.lat, region.lng]);
-  const [mapZoom, setMapZoom] = useState(10);
+  const [mapZoom, setMapZoom] = useState(11);
+  const [mapBounds, setMapBounds] = useState(null);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
   const [selectedLocationName, setSelectedLocationName] = useState(region.name);
+  const searchContainerRef = useRef(null);
 
-  // Geographic Drawing / Area Selection state (Phase 2)
+  // Geographic Drawing / Area Selection state
   const [activeTool, setActiveTool] = useState('pan'); // 'pan' | 'point' | 'rectangle' | 'polygon'
   const [selectedAreaGeoJson, setSelectedAreaGeoJson] = useState(null);
   const [selectedAreaHectares, setSelectedAreaHectares] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState(null);
+  const [toastMessage, setToastMessage] = useState(null);
 
-  // Centralized Environment State (Phase 5)
+  // Sidebar collapse state
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  // Layer & Opacity state
+  const [activeLayer, setActiveLayer] = useState('satellite');
+  const [layerOpacity, setLayerOpacity] = useState(85);
+
+  // Centralized Environment State
   const [environment, setEnvironment] = useState({
     rainfall: 35,
     droughtSeverity: region.riskLevel === 'Critical' ? 8 : region.riskLevel === 'High' ? 6 : 3,
@@ -52,14 +111,13 @@ export default function ScenarioLab({ region, onBack }) {
   });
 
   const [budget, setBudget] = useState(75);
-  const [activeLayer, setActiveLayer] = useState('satellite');
 
   if (!region) return null;
 
   // Run simulation calculations
   const simResult = calculateSimulation(region, environment, strategies, budget);
 
-  // Handle Global Location Search (Phase 1)
+  // Handle Global Location Search with Debouncing & Keyboard Navigation
   useEffect(() => {
     const timer = setTimeout(async () => {
       if (searchQuery.trim().length >= 2) {
@@ -67,40 +125,132 @@ export default function ScenarioLab({ region, onBack }) {
         const results = await searchLocations(searchQuery);
         setSearchResults(results);
         setIsSearching(false);
+        setSelectedIndex(-1);
       } else {
         setSearchResults([]);
+        setIsSearching(false);
       }
-    }, 400);
+    }, 350);
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  // Click outside to close search dropdown
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+        setSearchResults([]);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const handleSelectLocation = (loc) => {
     setMapCenter([loc.lat, loc.lng]);
     setMapZoom(12);
+    if (loc.boundingbox) {
+      setMapBounds(loc.boundingbox);
+    } else {
+      setMapBounds(null);
+    }
     setSelectedLocationName(loc.name);
     setSearchQuery('');
     setSearchResults([]);
+    setSelectedIndex(-1);
+    showToast(`Zoomed to ${loc.name.split(',')[0]}`);
   };
 
-  // Handle Geographic Area Selection (Phase 2)
-  const handleMapClick = (e) => {
-    if (activeTool === 'point') {
-      const { lat, lng } = e.latlng;
-      const dummyGeoJson = {
-        type: 'Feature',
-        geometry: {
-          type: 'Point',
-          coordinates: [lng, lat]
-        },
-        properties: { name: selectedLocationName }
-      };
-      setSelectedAreaGeoJson(dummyGeoJson);
-      setSelectedAreaHectares(125.4); // Demonstration area size in hectares
+  const handleKeyDown = (e) => {
+    if (searchResults.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedIndex(prev => (prev < searchResults.length - 1 ? prev + 1 : 0));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedIndex(prev => (prev > 0 ? prev - 1 : searchResults.length - 1));
+    } else if (e.key === 'Enter' && selectedIndex >= 0 && selectedIndex < searchResults.length) {
+      e.preventDefault();
+      handleSelectLocation(searchResults[selectedIndex]);
+    } else if (e.key === 'Escape') {
+      setSearchResults([]);
+      setSelectedIndex(-1);
     }
   };
 
-  // Handle Research Integration (Phase 3)
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 3500);
+  };
+
+  // Helper to compute polygon area in hectares approximately using spherical geometry
+  const computePolygonHectares = (coords) => {
+    if (!coords || coords.length < 3) return 50;
+    let area = 0;
+    const earthRadius = 6378137;
+    for (let i = 0; i < coords.length; i++) {
+      const p1 = coords[i];
+      const p2 = coords[(i + 1) % coords.length];
+      const lat1 = (p1[0] * Math.PI) / 180;
+      const lat2 = (p2[0] * Math.PI) / 180;
+      const lng1 = (p1[1] * Math.PI) / 180;
+      const lng2 = (p2[1] * Math.PI) / 180;
+      area += (lng2 - lng1) * (2 + Math.sin(lat1) + Math.sin(lat2));
+    }
+    area = Math.abs((area * earthRadius * earthRadius) / 2.0);
+    const hectares = area / 10000;
+    return Math.max(10, Math.round(hectares * 10) / 10);
+  };
+
+  const handlePolygonComplete = (latlngs) => {
+    const hectares = computePolygonHectares(latlngs);
+    setSelectedAreaGeoJson({
+      type: 'Polygon',
+      coordinates: latlngs
+    });
+    setSelectedAreaHectares(hectares);
+    setActiveTool('pan');
+    showToast(`Farmland boundary completed: ${hectares} hectares`);
+  };
+
+  const handleRectangleComplete = (bounds) => {
+    const [sw, ne] = bounds;
+    const latLngs = [
+      [sw[0], sw[1]],
+      [sw[0], ne[1]],
+      [ne[0], ne[1]],
+      [ne[0], sw[1]]
+    ];
+    const hectares = computePolygonHectares(latLngs);
+    setSelectedAreaGeoJson({
+      type: 'Polygon',
+      coordinates: latLngs
+    });
+    setSelectedAreaHectares(hectares);
+    setActiveTool('pan');
+    showToast(`Bounding box completed: ${hectares} hectares`);
+  };
+
+  const handlePointComplete = (latlng) => {
+    const latLngs = [
+      [latlng.lat - 0.005, latlng.lng - 0.005],
+      [latlng.lat - 0.005, latlng.lng + 0.005],
+      [latlng.lat + 0.005, latlng.lng + 0.005],
+      [latlng.lat + 0.005, latlng.lng - 0.005]
+    ];
+    const hectares = computePolygonHectares(latLngs);
+    setSelectedAreaGeoJson({
+      type: 'Polygon',
+      coordinates: latLngs
+    });
+    setSelectedAreaHectares(hectares);
+    setActiveTool('pan');
+    showToast(`Point selected with 125 ha buffer zone`);
+  };
+
   const handleAnalyzeArea = async () => {
     if (!selectedAreaGeoJson) return;
     setIsAnalyzing(true);
@@ -116,6 +266,14 @@ export default function ScenarioLab({ region, onBack }) {
     setSelectedAreaGeoJson(null);
     setSelectedAreaHectares(null);
     setAnalysisResult(null);
+    showToast('Scenario parameters reset to baseline');
+  };
+
+  const handleLoadExample = () => {
+    setEnvironment({ rainfall: 22, droughtSeverity: 7, temperature: 36, soilMoisture: 24 });
+    setStrategies({ cropType: 'maize', irrigation: 'sprinkler', mulching: 'residue', droughtSeeds: true, precisionNitrogen: false });
+    setBudget(100);
+    showToast('Loaded Extreme Drought Maize Scenario');
   };
 
   const getTileUrl = () => {
@@ -124,7 +282,7 @@ export default function ScenarioLab({ region, onBack }) {
         return 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
       case 'soil':
       case 'ndvi':
-      case 'rainfall':
+      case 'temperature':
       case 'base':
       default:
         return 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
@@ -133,7 +291,15 @@ export default function ScenarioLab({ region, onBack }) {
 
   return (
     <div className="scenario-lab-overlay">
-      {/* Google Earth Minimalist Header with Global Search (Phase 1 & 4) */}
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="bhoomi-toast-banner">
+          <CheckCircle2 size={16} />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Navbar (approx 68-72px) */}
       <header className="lab-header">
         <div className="lab-title-group">
           <button className="lab-back-btn" onClick={onBack}>
@@ -144,99 +310,197 @@ export default function ScenarioLab({ region, onBack }) {
           </h1>
         </div>
 
-        {/* Global Location Search Bar */}
-        <div className="lab-search-container">
-          <div className="lab-search-wrapper">
-            <Search size={16} className="search-icon" />
-            <input
-              type="text"
-              placeholder="Search cities, villages, coordinates..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+        <div className="header-actions-right">
+          <button className="lab-example-btn" onClick={handleLoadExample}>
+            Load Example Scenario
+          </button>
+          <div className="lab-region-pill">
+            <span>{selectedLocationName.split(',')[0]}</span>
           </div>
-
-          {searchResults.length > 0 && (
-            <div className="lab-search-dropdown">
-              {searchResults.map(loc => (
-                <div key={loc.id} className="lab-search-item" onClick={() => handleSelectLocation(loc)}>
-                  <MapPin size={14} />
-                  <span>{loc.name}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="lab-region-pill">
-          <span>{selectedLocationName.split(',')[0]}</span>
         </div>
       </header>
 
       {/* Map-First Workspace */}
       <div className="lab-workspace">
-        {/* Large Interactive Satellite Map Centerpiece */}
-        <div className="lab-map-container" onClick={activeTool === 'point' ? undefined : undefined}>
-          {/* Geographic Drawing Toolbar (Phase 2) */}
+        {/* Large Satellite Map Centerpiece (70-75% width) */}
+        <div className="lab-map-container" style={{ width: isSidebarOpen ? 'calc(100% - 410px)' : '100%', transition: 'width 0.3s ease' }}>
+
+          {/* Google Earth Inspired Floating Location Search Bar */}
+          <div
+            className="earth-search-container"
+            ref={searchContainerRef}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="earth-search-bar-wrapper">
+              <Search size={18} className="earth-search-icon" />
+              <input
+                type="text"
+                className="earth-search-input"
+                placeholder="Search a location or coordinates"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+              />
+              {isSearching && <Loader2 size={16} className="earth-search-spinner" />}
+              {searchQuery && !isSearching && (
+                <button
+                  className="earth-search-clear"
+                  onClick={() => { setSearchQuery(''); setSearchResults([]); }}
+                  title="Clear search"
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+
+            {searchResults.length > 0 && (
+              <div className="earth-autocomplete-dropdown">
+                {searchResults.map((loc, idx) => (
+                  <div
+                    key={loc.id}
+                    className={`earth-autocomplete-item ${idx === selectedIndex ? 'active' : ''}`}
+                    onClick={() => handleSelectLocation(loc)}
+                    onMouseEnter={() => setSelectedIndex(idx)}
+                  >
+                    <MapPin size={15} className="earth-item-pin" />
+                    <div className="earth-item-text">
+                      <span className="earth-item-name">{loc.name.split(',')[0]}</span>
+                      <span className="earth-item-detail">{loc.name}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Geographic Drawing Toolbar */}
           <div className="map-drawing-toolbar">
             <button className={`draw-btn ${activeTool === 'pan' ? 'active' : ''}`} onClick={() => setActiveTool('pan')} title="Pan Map"><Hand size={16} /></button>
             <button className={`draw-btn ${activeTool === 'point' ? 'active' : ''}`} onClick={() => setActiveTool('point')} title="Select Point"><MapPin size={16} /></button>
-            <button className={`draw-btn ${activeTool === 'rectangle' ? 'active' : ''}`} onClick={() => { setActiveTool('rectangle'); setSelectedAreaGeoJson({ type: 'Polygon', area: '240 ha' }); setSelectedAreaHectares(240); }} title="Draw Bounding Box"><Square size={16} /></button>
-            <button className={`draw-btn ${activeTool === 'polygon' ? 'active' : ''}`} onClick={() => { setActiveTool('polygon'); setSelectedAreaGeoJson({ type: 'Polygon', area: '510 ha' }); setSelectedAreaHectares(510); }} title="Draw Polygon"><Pentagon size={16} /></button>
-            <button className="draw-btn clear" onClick={() => { setSelectedAreaGeoJson(null); setSelectedAreaHectares(null); setAnalysisResult(null); }} title="Clear Selection">Clear</button>
+            <button className={`draw-btn ${activeTool === 'rectangle' ? 'active' : ''}`} onClick={() => setActiveTool('rectangle')} title="Draw Bounding Box"><Square size={16} /></button>
+            <button className={`draw-btn ${activeTool === 'polygon' ? 'active' : ''}`} onClick={() => setActiveTool('polygon')} title="Draw Polygon (Click vertices, double-click to finish)"><Pentagon size={16} /></button>
+            <button className="draw-btn clear" onClick={() => { setSelectedAreaGeoJson(null); setSelectedAreaHectares(null); setAnalysisResult(null); showToast('Selection cleared'); }} title="Clear Selection">Clear</button>
           </div>
 
-          {/* Map Layer Switcher Toolbar */}
+          {/* Map Layer Switcher Toolbar & Opacity Slider */}
           <div className="map-layer-toolbar">
-            <button className={`layer-btn ${activeLayer === 'satellite' ? 'active' : ''}`} onClick={() => setActiveLayer('satellite')}>Satellite</button>
-            <button className={`layer-btn ${activeLayer === 'base' ? 'active' : ''}`} onClick={() => setActiveLayer('base')}>Base Map</button>
-            <button className={`layer-btn ${activeLayer === 'soil' ? 'active' : ''}`} onClick={() => setActiveLayer('soil')}>Soil Moisture</button>
-            <button className={`layer-btn ${activeLayer === 'ndvi' ? 'active' : ''}`} onClick={() => setActiveLayer('ndvi')}>Vegetation NDVI</button>
+            <div className="layer-btns-row">
+              <button className={`layer-btn ${activeLayer === 'satellite' ? 'active' : ''}`} onClick={() => setActiveLayer('satellite')}>Satellite</button>
+              <button className={`layer-btn ${activeLayer === 'base' ? 'active' : ''}`} onClick={() => setActiveLayer('base')}>Base</button>
+              <button className={`layer-btn ${activeLayer === 'soil' ? 'active' : ''}`} onClick={() => setActiveLayer('soil')}>Soil Moisture</button>
+              <button className={`layer-btn ${activeLayer === 'ndvi' ? 'active' : ''}`} onClick={() => setActiveLayer('ndvi')}>NDVI</button>
+              <button className={`layer-btn ${activeLayer === 'temperature' ? 'active' : ''}`} onClick={() => setActiveLayer('temperature')}>Temp</button>
+            </div>
+            <div className="layer-opacity-row">
+              <span>Opacity: {layerOpacity}%</span>
+              <input
+                type="range"
+                min="20"
+                max="100"
+                value={layerOpacity}
+                onChange={(e) => setLayerOpacity(Number(e.target.value))}
+                className="opacity-slider"
+              />
+            </div>
           </div>
+
+          {/* NDVI & Soil Moisture Legend */}
+          {(activeLayer === 'ndvi' || activeLayer === 'soil' || activeLayer === 'temperature') && (
+            <div className="map-ndvi-legend">
+              <span className="legend-title">{activeLayer === 'ndvi' ? 'Vegetation NDVI' : activeLayer === 'soil' ? 'Soil Moisture (SMAP)' : 'Surface Temp (°C)'}</span>
+              <div className="legend-gradient-bar"></div>
+              <div className="legend-labels">
+                <span>{activeLayer === 'ndvi' ? '0.1 (Stressed)' : activeLayer === 'soil' ? '10% (Dry)' : '20°C'}</span>
+                <span>{activeLayer === 'ndvi' ? '0.5 (Moderate)' : activeLayer === 'soil' ? '35% (Optimal)' : '32°C'}</span>
+                <span>{activeLayer === 'ndvi' ? '0.9 (Vigor)' : activeLayer === 'soil' ? '65% (Saturated)' : '45°C'}</span>
+              </div>
+            </div>
+          )}
 
           <MapContainer
             center={mapCenter}
             zoom={mapZoom}
             scrollWheelZoom={true}
-            style={{ width: '100%', height: '100%', background: '#202124' }}
-            onClick={handleMapClick}
+            style={{ width: '100%', height: '100%', background: 'var(--bg-main)' }}
           >
-            <MapController center={mapCenter} zoom={mapZoom} />
+            <MapController center={mapCenter} zoom={mapZoom} bounds={mapBounds} />
+            <DrawingManager
+              activeTool={activeTool}
+              onPolygonComplete={handlePolygonComplete}
+              onRectangleComplete={handleRectangleComplete}
+              onPointComplete={handlePointComplete}
+            />
             <TileLayer
               attribution='&copy; OpenStreetMap contributors & NASA GIBS'
               url={getTileUrl()}
+              opacity={layerOpacity / 100}
             />
             <Marker position={mapCenter}>
               <Popup>
-                <div style={{ fontFamily: 'Roboto, sans-serif', fontSize: '14px', color: '#202124' }}>
+                <div style={{ fontFamily: 'Roboto, sans-serif', fontSize: '15px', color: 'var(--text-primary)' }}>
                   <strong>{selectedLocationName}</strong><br />
                   Simulated Scenario Soil Moisture: <strong>{simResult.modified.soilMoisture}%</strong><br />
                   Coordinates: {mapCenter[0].toFixed(2)}°N, {mapCenter[1].toFixed(2)}°E
                 </div>
               </Popup>
             </Marker>
+
+            {/* Render User Drawn Polygon */}
+            {selectedAreaGeoJson && selectedAreaGeoJson.coordinates && (
+              <LeafletPolygon
+                positions={selectedAreaGeoJson.coordinates}
+                pathOptions={{ color: '#245C46', fillColor: '#94B49F', fillOpacity: 0.45, weight: 3 }}
+              />
+            )}
           </MapContainer>
 
-          {/* Selected Area Research Overlay Card (Phase 3) */}
-          {selectedAreaGeoJson && (
-            <div className="selected-area-research-hud">
-              <div className="sar-header">
-                <span>Selected Area: <strong>{selectedAreaHectares} Hectares</strong></span>
-              </div>
-              {!analysisResult ? (
-                <button className="sar-analyze-btn" onClick={handleAnalyzeArea} disabled={isAnalyzing}>
-                  {isAnalyzing ? 'Analyzing Satellite Telemetry...' : 'Analyze Selected Area'}
-                </button>
-              ) : (
-                <div className="sar-results">
-                  <div className="sar-row"><span>Soil Moisture:</span> <strong>{analysisResult.indicators.soilMoisture}</strong></div>
-                  <div className="sar-row"><span>Vegetation NDVI:</span> <strong>{analysisResult.indicators.ndvi}</strong></div>
-                  <div className="sar-row"><span>Rainfall:</span> <strong>{analysisResult.indicators.rainfall}</strong></div>
-                  <div className="sar-source">{analysisResult.dataSource}</div>
-                </div>
-              )}
+          {/* Floating Research Card (Shown over map) */}
+          <div className="floating-research-glass-card">
+            <div className="frc-header">
+              <span className="frc-title">{selectedLocationName.split(',')[0]}</span>
+              <span className="frc-badge">{region.riskLevel} Risk</span>
             </div>
-          )}
+            <div className="frc-grid">
+              <div className="frc-item">
+                <span>Soil Moisture</span>
+                <strong>{environment.soilMoisture}%</strong>
+              </div>
+              <div className="frc-item">
+                <span>Vegetation Health</span>
+                <strong>{region.indicators.ndvi}</strong>
+              </div>
+              <div className="frc-item">
+                <span>Rainfall</span>
+                <strong>{environment.rainfall} mm</strong>
+              </div>
+              <div className="frc-item">
+                <span>Temperature</span>
+                <strong>{environment.temperature} °C</strong>
+              </div>
+            </div>
+
+            {selectedAreaHectares ? (
+              <div className="frc-area-info">
+                <span>Selected Farmland: <strong>{selectedAreaHectares} Hectares</strong></span>
+                {!analysisResult ? (
+                  <button className="frc-analyze-btn" onClick={handleAnalyzeArea} disabled={isAnalyzing}>
+                    {isAnalyzing ? 'Analyzing Satellite Telemetry...' : 'Analyze Selected Area'}
+                  </button>
+                ) : (
+                  <div className="frc-analysis-res">
+                    <span>Analyzed Soil Moisture: <strong>{analysisResult.indicators.soilMoisture}</strong></span>
+                    <span>NDVI Vigor: <strong>{analysisResult.indicators.ndvi}</strong></span>
+                    <span className="frc-source">{analysisResult.dataSource}</span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="frc-empty-state">
+                <span>Select the Polygon or Box tool on the map to draw and analyze custom farmland boundaries.</span>
+              </div>
+            )}
+          </div>
 
           {/* Map Attribution HUD */}
           <div className="map-attribution-hud">
@@ -244,10 +508,19 @@ export default function ScenarioLab({ region, onBack }) {
           </div>
         </div>
 
-        {/* Compact Floating Environmental & Strategy Controls (Right Glass Panel - Phase 4) */}
-        <div className="lab-floating-controls-panel">
+        {/* Toggle Sidebar Button */}
+        <button
+          className="sidebar-toggle-btn"
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          title={isSidebarOpen ? 'Collapse Sidebar' : 'Expand Sidebar'}
+        >
+          {isSidebarOpen ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+        </button>
+
+        {/* Collapsible Right Sidebar (Environmental Controls & Farming Interventions) */}
+        <div className={`lab-floating-controls-panel ${isSidebarOpen ? 'open' : 'closed'}`}>
           <div className="control-card">
-            <h3><CloudRain size={16} /> Environmental Parameters</h3>
+            <h3><CloudRain size={18} /> Weather and Climate</h3>
 
             <div className="ctrl-group">
               <div className="ctrl-label-row">
@@ -293,10 +566,25 @@ export default function ScenarioLab({ region, onBack }) {
                 className="lab-range"
               />
             </div>
+
+            <div className="ctrl-group">
+              <div className="ctrl-label-row">
+                <span>Baseline Soil Moisture</span>
+                <strong>{environment.soilMoisture} %</strong>
+              </div>
+              <input
+                type="range"
+                min="10"
+                max="60"
+                value={environment.soilMoisture}
+                onChange={(e) => setEnvironment({ ...environment, soilMoisture: Number(e.target.value) })}
+                className="lab-range"
+              />
+            </div>
           </div>
 
           <div className="control-card">
-            <h3><Sliders size={16} /> Farming Interventions</h3>
+            <h3><Sliders size={18} /> Farming Interventions</h3>
 
             <div className="ctrl-select-row">
               <label>Crop Cultivar</label>
@@ -358,9 +646,9 @@ export default function ScenarioLab({ region, onBack }) {
               </label>
             </div>
 
-            <div className="ctrl-group" style={{ marginTop: '12px' }}>
+            <div className="ctrl-group" style={{ marginTop: '16px' }}>
               <div className="ctrl-label-row">
-                <span>Budget Allocation</span>
+                <span>Budget Allocation ($k)</span>
                 <strong>${budget},000 USD</strong>
               </div>
               <input
@@ -375,13 +663,20 @@ export default function ScenarioLab({ region, onBack }) {
             </div>
           </div>
 
+          <div className="control-card">
+            <h3>Research Metadata & Model</h3>
+            <p style={{ fontSize: '15px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
+              {simResult.assumptions[0]} {simResult.assumptions[1]}
+            </p>
+          </div>
+
           <button className="lab-reset-btn" onClick={handleReset}>
-            <RefreshCw size={15} /> Reset Scenario Parameters
+            <RefreshCw size={16} /> Reset Scenario Parameters
           </button>
         </div>
       </div>
 
-      {/* Bottom Comparison Drawer */}
+      {/* Bottom Scenario Comparison Panel */}
       <div className="lab-comparison-drawer">
         <div className="drawer-title-row">
           <h3><Layers size={18} /> Baseline vs. Scenario Strategy Comparison</h3>
@@ -394,7 +689,7 @@ export default function ScenarioLab({ region, onBack }) {
             <div className="m-val-row">
               <span className="base-val">{simResult.baseline.waterDemand} m³/ha</span>
               <span className="arrow">→</span>
-              <span className="mod-val" style={{ color: '#729A78' }}>{simResult.modified.waterDemand} m³/ha</span>
+              <span className="mod-val" style={{ color: '#245C46' }}>{simResult.modified.waterDemand} m³/ha</span>
             </div>
           </div>
 
@@ -403,7 +698,7 @@ export default function ScenarioLab({ region, onBack }) {
             <div className="m-val-row">
               <span className="base-val">{simResult.baseline.soilMoisture}%</span>
               <span className="arrow">→</span>
-              <span className="mod-val" style={{ color: '#729A78' }}>{simResult.modified.soilMoisture}%</span>
+              <span className="mod-val" style={{ color: '#245C46' }}>{simResult.modified.soilMoisture}%</span>
             </div>
           </div>
 
@@ -412,7 +707,7 @@ export default function ScenarioLab({ region, onBack }) {
             <div className="m-val-row">
               <span className="base-val">{simResult.baseline.cropStress}%</span>
               <span className="arrow">→</span>
-              <span className="mod-val" style={{ color: simResult.modified.cropStress < 40 ? '#729A78' : '#C46B5B' }}>
+              <span className="mod-val" style={{ color: simResult.modified.cropStress < 40 ? '#245C46' : '#C94F4F' }}>
                 {simResult.modified.cropStress}%
               </span>
             </div>
@@ -423,7 +718,7 @@ export default function ScenarioLab({ region, onBack }) {
             <div className="m-val-row">
               <span className="base-val">{simResult.baseline.yield} t/ha</span>
               <span className="arrow">→</span>
-              <span className="mod-val" style={{ color: '#729A78' }}>{simResult.modified.yield} t/ha (+{simResult.metrics.economicRoi}%)</span>
+              <span className="mod-val" style={{ color: '#245C46' }}>{simResult.modified.yield} t/ha (+{simResult.metrics.economicRoi}%)</span>
             </div>
           </div>
         </div>
