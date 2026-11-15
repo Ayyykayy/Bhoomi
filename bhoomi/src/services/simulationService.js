@@ -5,8 +5,11 @@
  */
 
 export function calculateSimulation(region, environment, strategies, budget) {
-  // Baseline values derived from selected region indicators
-  const baseMoisture = parseFloat(region.indicators.soilMoisture) || 30;
+  // Baseline comes from the editable scenario input, not assumed location observations.
+  const baseMoisture = environment?.soilMoisture;
+  if (typeof baseMoisture !== 'number' || !Number.isFinite(baseMoisture) || baseMoisture < 0 || baseMoisture > 100) {
+    throw new Error('Enter a scenario soil moisture between 0 and 100%.');
+  }
   const baseYield = 4.2; // tons/hectare baseline
 
   // Environment inputs (rainfall in mm, drought severity 1-10, temp °C)
@@ -80,8 +83,8 @@ export function calculateSimulation(region, environment, strategies, budget) {
       carbonOffsetTon: Math.round((budget / 10) * 1.8)
     },
     assumptions: [
-      `Rainfall simulation set to ${rainfall}mm against 10-year historical mean.`,
-      `Telemetry synthesized using NASA SMAP root-zone soil moisture & MODIS NDVI indices.`,
+      `Rainfall simulation set to ${rainfall}mm (user-adjusted scenario input, not a historical anomaly).`,
+      `Illustrative calculations use scenario inputs; SMAP and MODIS data are not connected to this model.`,
       `Economic ROI and yield estimates are demonstration projections for hackathon evaluation.`
     ]
   };

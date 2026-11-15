@@ -1,18 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
 import * as maplibregl from 'maplibre-gl';
+import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
+
+// Keep the worker bundled by Vite and matched to the installed MapLibre version.
+maplibregl.setWorkerUrl(maplibreWorkerUrl);
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { reverseGeocodeLocation } from '../../services/api';
-import { Square, Trash2, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import './EarthGlobe.css';
 
-export default function EarthGlobe({ selectedLocation, onSelectLocation, polygonArea, onPolygonChange }) {
+export default function EarthGlobe({ selectedLocation, onSelectLocation }) {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const coordsRef = useRef(null);
   const [mapStyle, setMapStyle] = useState('satellite'); // 'satellite' | 'streets'
   const [keyError, setKeyError] = useState(null);
-  const [drawingMode, setDrawingMode] = useState(false);
-  const [polygonCoords, setPolygonCoords] = useState(polygonArea || []);
 
   const maptilerKey = import.meta.env.VITE_MAPTILER_KEY;
 
@@ -38,35 +40,38 @@ export default function EarthGlobe({ selectedLocation, onSelectLocation, polygon
     return `${latDeg}°${String(latMin).padStart(2, '0')}′${String(latSec).padStart(2, '0')}″${latDir}  ${lngDeg}°${String(lngMin).padStart(2, '0')}′${String(lngSec).padStart(2, '0')}″${lngDir}`;
   };
 
+  // Initialize single map instance on mount with globe projection set in options where supported
   useEffect(() => {
     if (!mapContainerRef.current || keyError) return;
 
-    const styleUrl = mapStyle === 'satellite'
+    const initialStyleUrl = mapStyle === 'satellite'
       ? `https://api.maptiler.com/maps/hybrid/style.json?key=${maptilerKey}`
       : `https://api.maptiler.com/maps/streets-v2/style.json?key=${maptilerKey}`;
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: styleUrl,
+      style: initialStyleUrl,
       center: selectedLocation ? [selectedLocation.lng, selectedLocation.lat] : [0, 20],
       zoom: selectedLocation ? 10 : 1.2,
       pitch: 0,
-      bearing: 0
+      bearing: 0,
+      projection: 'globe'
     });
 
     mapRef.current = map;
 
-    // Apply globe projection explicitly upon style loading and initialization
+    // Apply globe projection upon style loading and switching
     const applyGlobeProjection = () => {
       try {
-        map.setProjection({ type: 'globe' });
+        if (typeof map.setProjection === 'function') {
+          map.setProjection({ type: 'globe' });
+        }
       } catch (err) {
         console.log('Globe projection configuration:', err);
       }
     };
 
     map.on('style.load', applyGlobeProjection);
-    applyGlobeProjection();
 
     map.on('error', (e) => {
       console.error('MapLibre error event:', e);
@@ -75,7 +80,6 @@ export default function EarthGlobe({ selectedLocation, onSelectLocation, polygon
       }
     });
 
-    // Hover coordinate readout restricted to valid globe surface features
     map.on('mousemove', (e) => {
       if (!coordsRef.current) return;
       const { lng, lat } = e.lngLat;
@@ -98,22 +102,6 @@ export default function EarthGlobe({ selectedLocation, onSelectLocation, polygon
 
     map.on('click', async (e) => {
       const { lng, lat } = e.lngLat;
-
-      if (drawingMode) {
-        const newCoords = [...polygonCoords, [lng, lat]];
-        setPolygonCoords(newCoords);
-        if (onPolygonChange) {
-          onPolygonChange({
-            type: 'Feature',
-            geometry: {
-              type: 'Polygon',
-              coordinates: [newCoords.length >= 3 ? [...newCoords, newCoords[0]] : newCoords]
-            },
-            properties: { areaType: 'user-selected experiment area' }
-          });
-        }
-        return;
-      }
 
       const latStr = lat.toFixed(4);
       const lngStr = lng.toFixed(4);
@@ -153,7 +141,17 @@ export default function EarthGlobe({ selectedLocation, onSelectLocation, polygon
       map.remove();
       mapRef.current = null;
     };
-  }, [mapStyle, keyError]);
+  }, [keyError]);
+
+  // Update map style using setStyle instead of recreating map instance
+  useEffect(() => {
+    if (!mapRef.current || keyError) return;
+    const styleUrl = mapStyle === 'satellite'
+      ? `https://api.maptiler.com/maps/hybrid/style.json?key=${maptilerKey}`
+      : `https://api.maptiler.com/maps/streets-v2/style.json?key=${maptilerKey}`;
+
+    mapRef.current.setStyle(styleUrl);
+  }, [mapStyle, maptilerKey, keyError]);
 
   useEffect(() => {
     if (mapRef.current && selectedLocation) {
@@ -165,10 +163,6 @@ export default function EarthGlobe({ selectedLocation, onSelectLocation, polygon
     }
   }, [selectedLocation]);
 
-  const handleClearPolygon = () => {
-    setPolygonCoords([]);
-    if (onPolygonChange) onPolygonChange(null);
-  };
 
   return (
     <div className="earth-globe-container">
@@ -224,48 +218,6 @@ export default function EarthGlobe({ selectedLocation, onSelectLocation, polygon
           Streets
         </button>
 
-        <div style={{ width: '1px', height: '16px', background: 'var(--border-color)', margin: '0 2px' }} />
-
-        <button
-          onClick={() => setDrawingMode(!drawingMode)}
-          style={{
-            background: drawingMode ? 'var(--vegetation)' : 'var(--surface-elevated)',
-            color: drawingMode ? '#fff' : 'var(--text-primary)',
-            border: '1px solid var(--border-color)',
-            padding: '4px 10px',
-            borderRadius: '6px',
-            fontSize: '12px',
-            fontWeight: 600,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px'
-          }}
-          title="Draw experiment area polygon on globe"
-        >
-          <Square size={12} /> {drawingMode ? 'Drawing Active' : 'Draw Experiment Area'}
-        </button>
-
-        {polygonCoords.length > 0 && (
-          <button
-            onClick={handleClearPolygon}
-            style={{
-              background: 'var(--risk-high-bg)',
-              color: 'var(--risk-high-text)',
-              border: '1px solid var(--risk-high-border)',
-              padding: '4px 8px',
-              borderRadius: '6px',
-              fontSize: '12px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '2px'
-            }}
-            title="Clear drawn experiment area"
-          >
-            <Trash2 size={12} /> Clear ({polygonCoords.length})
-          </button>
-        )}
       </div>
 
       {/* Required MapTiler Attribution Footer */}

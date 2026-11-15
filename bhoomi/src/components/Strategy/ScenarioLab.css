@@ -809,3 +809,65 @@
   color: var(--text-secondary);
   font-size: 11px;
 }
+
+/* Simulator-only visual refresh. All selectors stay inside this page. */
+.scenario-lab-overlay { --lab-accent: var(--primary-blue); --lab-line: var(--border-color); }
+.scenario-lab-overlay .lab-header { min-height: 76px; height: auto; padding: 16px 24px; gap: 16px; box-shadow: none; }
+.scenario-lab-overlay .lab-title-group { gap: 20px; min-width: 0; }
+.scenario-lab-overlay .lab-title-group h1 { font-size: 22px !important; gap: 12px; flex-wrap: wrap; }
+.scenario-lab-overlay .demo-badge, .scenario-lab-overlay .frc-badge { color: #9bc1ff; background: rgba(66,133,244,.12); border: 1px solid rgba(66,133,244,.3); border-radius: 6px; padding: 5px 8px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.scenario-lab-overlay .header-actions-right { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.scenario-lab-overlay .lab-region-pill { max-width: 230px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scenario-lab-overlay .lab-data-notice { display: flex; align-items: baseline; gap: 14px; flex-shrink: 0; padding: 12px 26px; background: rgba(66,133,244,.08); border-bottom: 1px solid rgba(66,133,244,.18); color: var(--text-secondary); font-size: 13px; line-height: 1.5; }
+.scenario-lab-overlay .lab-data-notice strong { color: var(--text-primary); white-space: nowrap; }
+.scenario-lab-overlay .lab-workspace { min-height: 0; flex: 1; }
+.scenario-lab-overlay .lab-floating-controls-panel { box-sizing: border-box; padding: 20px; gap: 16px; background: var(--bg-main); border-left: 1px solid var(--lab-line); }
+.scenario-lab-overlay .control-card { padding: 20px; border-radius: 14px; box-shadow: none; background: var(--surface); border: 1px solid var(--lab-line); }
+.scenario-lab-overlay .control-card h3 { font-size: 16px; line-height: 1.4; margin: 0 0 20px; color: var(--text-primary); }
+.scenario-lab-overlay .control-card p { font-size: 13px; line-height: 1.75; color: var(--text-secondary); margin: 0; }
+.scenario-lab-overlay .ctrl-group { margin-bottom: 22px; }
+.scenario-lab-overlay .ctrl-label-row { gap: 12px; font-size: 13px; margin-bottom: 12px; }
+.scenario-lab-overlay .ctrl-label-row strong { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.scenario-lab-overlay .lab-range, .scenario-lab-overlay .opacity-slider, .scenario-lab-overlay input[type='checkbox'] { accent-color: var(--lab-accent); }
+.scenario-lab-overlay .lab-range::-webkit-slider-thumb, .scenario-lab-overlay .opacity-slider::-webkit-slider-thumb { background: var(--lab-accent); }
+.scenario-lab-overlay .lab-range::-moz-range-thumb, .scenario-lab-overlay .opacity-slider::-moz-range-thumb { background: var(--lab-accent); }
+.scenario-lab-overlay .lab-select { border-radius: 9px; min-height: 42px; background: var(--surface-elevated); color: var(--text-primary); border-color: var(--lab-line); }
+.scenario-lab-overlay .ctrl-select-row { margin-bottom: 18px; }
+.scenario-lab-overlay .lab-checkbox { font-size: 13px; line-height: 1.5; }
+.scenario-lab-overlay .lab-back-btn:hover, .scenario-lab-overlay .lab-reset-btn:hover, .scenario-lab-overlay .layer-btn.active, .scenario-lab-overlay .draw-btn.active, .scenario-lab-overlay .frc-analyze-btn { background: var(--lab-accent); border-color: var(--lab-accent); color: #fff; }
+.scenario-lab-overlay button:focus-visible, .scenario-lab-overlay input:focus-visible, .scenario-lab-overlay select:focus-visible { outline: 2px solid var(--lab-accent); outline-offset: 3px; }
+.scenario-lab-overlay .earth-search-container { left: 24px; top: 24px; width: min(380px, calc(100% - 48px)); }
+.scenario-lab-overlay .map-layer-toolbar { left: 24px; top: 92px; width: min(380px, calc(100% - 48px)); box-sizing: border-box; }
+.scenario-lab-overlay .map-drawing-toolbar { right: 24px; top: 24px; border-radius: 12px; }
+.scenario-lab-overlay .floating-research-glass-card { right: 24px; bottom: 44px; width: min(330px, calc(100% - 48px)); padding: 18px; box-sizing: border-box; border-radius: 14px; box-shadow: 0 8px 32px #0003; }
+.scenario-lab-overlay .frc-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.scenario-lab-overlay .frc-item { background: var(--surface-elevated); border-radius: 10px; padding: 12px; }
+.scenario-lab-overlay .frc-item strong { font-size: 15px; line-height: 1.5; }
+.scenario-lab-overlay .frc-empty-state { font-size: 12px; line-height: 1.6; }
+.scenario-lab-overlay .lab-comparison-drawer { height: auto; min-height: 128px; flex-shrink: 0; padding: 16px 24px; box-sizing: border-box; box-shadow: 0 -4px 18px #0001; }
+.scenario-lab-overlay .drawer-title-row { margin-bottom: 12px; gap: 14px; }
+.scenario-lab-overlay .drawer-subtitle { font-size: 12px; }
+.scenario-lab-overlay .metric-box { border-radius: 11px; padding: 12px 16px; background: var(--surface-elevated); }
+.scenario-lab-overlay .metric-box .mod-val { color: var(--primary-blue) !important; font-variant-numeric: tabular-nums; }
+.scenario-lab-overlay .base-val { color: var(--text-secondary); opacity: .8; }
+@media (max-width: 1050px) {
+ .scenario-lab-overlay .lab-header { flex-wrap: wrap; padding: 12px 18px; }
+ .scenario-lab-overlay .lab-title-group h1 { font-size: 18px !important; }
+ .scenario-lab-overlay .earth-search-container { width: calc(100% - 48px); }
+ .scenario-lab-overlay .map-drawing-toolbar { top: 160px; left: 24px; right: auto; }
+ .scenario-lab-overlay .drawer-title-row { flex-wrap: wrap; }
+ .scenario-lab-overlay .lab-floating-controls-panel { padding: 14px; }
+}
+@media (max-width: 700px) {
+ .scenario-lab-overlay { overflow-y: auto; }
+ .scenario-lab-overlay .lab-header, .scenario-lab-overlay .lab-data-notice, .scenario-lab-overlay .lab-comparison-drawer { flex-shrink: 0; }
+ .scenario-lab-overlay .lab-title-group { flex-wrap: wrap; gap: 10px; }
+ .scenario-lab-overlay .lab-data-notice { align-items: flex-start; flex-direction: column; gap: 3px; padding: 12px 18px; }
+ .scenario-lab-overlay .lab-workspace { flex: none; height: auto; display: flex; flex-direction: column; }
+ .scenario-lab-overlay .lab-map-container { width: 100% !important; height: 560px; flex: none; }
+ .scenario-lab-overlay .lab-floating-controls-panel.open { width: 100%; height: auto; max-height: none; overflow: visible; }
+ .scenario-lab-overlay .lab-floating-controls-panel.closed { width: 0; height: 0; padding: 0; }
+ .scenario-lab-overlay .sidebar-toggle-btn { top: 280px; right: 0 !important; }
+ .scenario-lab-overlay .drawer-metrics-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+ .scenario-lab-overlay .header-actions-right { flex-wrap: wrap; }
+}
